@@ -29,11 +29,10 @@ export const POSED_BONES = [
 const FULL_FAT = 200000
 
 /**
- * How fat someone looks for the Fat they carry, 0 (skinny: nothing eaten since the last
- * roll) to 1 (as round as a ball, at FULL_FAT): on a log scale, eased so the first few
+ * How fat someone looks for the Fat they carry, 0 (skinny: nothing eaten yet, or just
+ * reborn) to 1 (as round as a ball, at FULL_FAT): on a log scale, eased so the first few
  * bites already show - a dozen cookies give you a tummy, a few hundred Fat a proper
- * belly - and it keeps growing a little with every bite. A roll burns the Fat off, so
- * you shrink all the way down the track, and come back skinny.
+ * belly - and it keeps growing a little with every bite.
  */
 export function bulkFor(fat = 0) {
   const t = Math.log(1 + Math.max(0, fat) / 6) / Math.log(1 + FULL_FAT / 6)
@@ -202,28 +201,54 @@ function airborne(vy) {
 }
 
 /**
- * Curled up into a ball to roll: knees hugged to the chest, chin tucked, back rounded -
- * the whole body then turns about its middle (see Player). `w` blends it in.
+ * Sprinting down the track to smash walls: big strides, knees driving up, fists pumping
+ * with the elbows bent, leaning into it and bouncing on every step. A fat body's legs
+ * swing a little shorter, its arms flap out round the belly, and it rocks from side to
+ * side - a mad, jiggling charge. `phase` is the stride; `w` blends it in.
  */
-function tucked(w) {
-  add('Spine1', -0.55, 0, 0, w)
-  add('Neck1', 0.45, 0, 0, w)
-  add('LegL1', -2.2, 0.12 * OUT_L, 0, w)
-  add('LegR1', -2.2, 0.12 * OUT_R, 0, w)
-  add('LegL2', 2.3, 0, 0, w)
-  add('LegR2', 2.3, 0, 0, w)
-  add('ArmL1', -1.25, -0.1 * OUT_L, 0, w)
-  add('ArmR1', -1.25, -0.1 * OUT_R, 0, w)
-  add('ArmL2', -1.5, 0, 0, w)
-  add('ArmR2', -1.5, 0, 0, w)
+function sprint(phase, bulk, w) {
+  const cycle = Math.sin(phase)
+  const leg = 1.05 - 0.3 * bulk
+  const arm = 1.1 - 0.4 * bulk
+  add('LegL1', cycle * leg, 0.08 * OUT_L * bulk, 0, w)
+  add('LegR1', -cycle * leg, 0.08 * OUT_R * bulk, 0, w)
+  // Knees fold hard on the back swing, and lift on the way through.
+  add('LegL2', (0.25 + Math.max(0, -cycle) * 1.5) * (1 - 0.2 * bulk), 0, 0, w)
+  add('LegR2', (0.25 + Math.max(0, cycle) * 1.5) * (1 - 0.2 * bulk), 0, 0, w)
+  add('ArmL1', -cycle * arm, (0.12 + 0.45 * bulk) * OUT_L, 0, w)
+  add('ArmR1', cycle * arm, (0.12 + 0.45 * bulk) * OUT_R, 0, w)
+  add('ArmL2', -1.45 - 0.25 * Math.max(0, cycle), 0, 0, w)
+  add('ArmR2', -1.45 - 0.25 * Math.max(0, -cycle), 0, 0, w)
+  add('Spine1', -0.22 + 0.08 * bulk, cycle * 0.12 * bulk, cycle * 0.16, w)
+  add('Neck1', 0.1, -cycle * 0.08 * bulk, -cycle * 0.06, w)
+  pose.lift += (Math.abs(Math.cos(phase)) * 0.11 - 0.03) * w
+}
+
+/**
+ * BELLY SMASH: leaning back to throw the belly out in front, chin up, both fists flung
+ * back behind you, one foot planted and the other driving off it - braced as a wall
+ * comes up, held as your belly slams into it and through. `w` blends it in.
+ */
+function ram(w) {
+  add('Spine1', 0.42, 0, 0, w)
+  add('Neck1', -0.38, 0, 0, w)
+  add('ArmL1', 1.15, 0.55 * OUT_L, 0.3, w)
+  add('ArmR1', 1.25, 0.6 * OUT_R, -0.3, w)
+  add('ArmL2', -0.55, 0, 0, w)
+  add('ArmR2', -0.75, 0, 0, w)
+  add('LegL1', -0.65, 0.1 * OUT_L, 0, w)
+  add('LegL2', 0.35, 0, 0, w)
+  add('LegR1', 0.7, 0.08 * OUT_R, 0, w)
+  add('LegR2', 0.55, 0, 0, w)
+  pose.lift += 0.05 * w
 }
 
 /** How far sitting on the ground lowers the body: hips from standing height to the floor. */
 const FLOOR_DROP = 0.72
 
 /**
- * Out of Fat at the end of a roll: sat in a heap on the track, legs out, leaning back
- * on your hands, your head going round and round. `w` blends it in.
+ * Bounced off a wall too strong: sat in a heap on the track, legs out, leaning back on
+ * your hands, your head going round and round. `w` blends it in.
  */
 function dizzy(time, w) {
   const spin = time * 7
@@ -372,11 +397,12 @@ export const tableBiteAt = (time) => (time / TRAIN_PERIOD) % 1
 
 /**
  * @param {{ time?: number, speed?: number, maxSpeed?: number, grounded?: boolean,
- *   vy?: number, stride?: number, rolling?: boolean, tired?: number, cheer?: number,
- *   curl?: number, training?: boolean, sitting?: boolean, dance?: number, bulk?: number }} motion
- *   `rolling` curls you up into a ball for the roll down the track (the player turns
- *   the ball), `tired` (0-1) sits you down in a dizzy heap when the Fat runs out and
- *   `cheer` (0-1) is the celebration at the end. Otherwise `curl` (0-1) is a bite in
+ *   vy?: number, stride?: number, dashing?: boolean, ram?: number, tired?: number,
+ *   cheer?: number, curl?: number, training?: boolean, sitting?: boolean, dance?: number,
+ *   bulk?: number }} motion
+ *   `dashing` is the sprint down the track (`stride` its step), `ram` (0-1) the belly
+ *   smash into a wall, `tired` (0-1) sits you down in a dizzy heap when a wall's too
+ *   strong and `cheer` (0-1) is the celebration at the end. Otherwise `curl` (0-1) is a bite in
  *   progress (0 = none), `sitting` sits you on a bench and `training` eats on a loop, at
  *   a Food Court's table, and `dance` (0-1) is the win dance. `bulk` (0-1, how fat you
  *   are) rests your arms out on your belly.
@@ -389,7 +415,7 @@ export function computePose(motion) {
     grounded = true,
     vy = 0,
     stride: phase = time * 5,
-    rolling = false,
+    dashing = false,
     tired = 0,
     cheer = 0,
     curl = 0,
@@ -411,16 +437,21 @@ export function computePose(motion) {
   }
   pose.lift = 0
 
-  if (rolling) {
+  if (dashing) {
+    const smash = Math.min(1, Math.max(0, motion.ram ?? 0))
     if (cheer > 0) {
-      tucked(1 - cheer)
+      sprint(phase, bulk, 1 - cheer)
       stance(cheer, time)
       cheering(time, cheer)
-      chubby(bulk, cheer)
     } else if (tired > 0) {
-      tucked(1 - tired)
+      ram(smash * (1 - tired))
       dizzy(time, tired)
-    } else tucked(1)
+    } else {
+      // Easing from the charge into the smash and back out of it.
+      sprint(phase, bulk, 1 - smash * 0.85)
+      if (smash > 0) ram(smash)
+    }
+    chubby(bulk, 1 - tired)
     return pose
   }
   if (sitting) {

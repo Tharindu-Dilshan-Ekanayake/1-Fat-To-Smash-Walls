@@ -5,6 +5,7 @@ import { Color, Euler, Matrix4, Quaternion, Vector3 } from 'three'
 import { useQuality } from '../../store/quality'
 import { createBoxInstances, disposeBlocks } from '../blocks'
 import { sharedMaterials, STYLE } from '../materials'
+import { pushTimeScale } from '../push/pushControl'
 import { drainBursts } from './fxQueue'
 
 /** Fixed pool: bursts reuse the oldest pieces when it's full. */
@@ -32,13 +33,13 @@ const PALETTES = {
   gold: ['#ffe45c', '#ffc21f', '#ff9a12', '#ffffff'].map((c) => new Color(c)),
   /** Bits of food off a bite: crust, chocolate, cream. */
   crumbs: ['#d99a4e', '#8a5426', '#ffd27a', '#f6efe0'].map((c) => new Color(c)),
-  /** Shreds of a smashed tape: red and white. */
+  /** Red and white streamers. */
   ribbon: ['#ff3045', '#ffffff', '#ff6a7a', '#ffffff'].map((c) => new Color(c)),
   power: ['#ffd84a', '#ffa21c', '#ffffff'].map((c) => new Color(c)),
-  /** Electric sparks off a tape your belly's pushing into. */
+  /** Electric sparks. */
   electric: ['#9ff3ff', '#ffffff', '#45c8ff', '#2f7dff'].map((c) => new Color(c)),
-  /** Shreds of a smashed tape: silver. */
-  tape: ['#e9ecf0', '#c3c9d1', '#ffffff', '#9aa3ad'].map((c) => new Color(c)),
+  /** Mortar dust and grit puffing off a wall a belly's smashing into. */
+  dust: ['#efe6d6', '#d6cbb8', '#ffffff', '#b9ad9a'].map((c) => new Color(c)),
 }
 
 /**
@@ -72,11 +73,12 @@ export function Particles() {
   useFrame((_state, rawDelta) => {
     const instanced = ref.current
     if (!instanced) return
-    const delta = Math.min(rawDelta, 0.05)
+    // A wall bursting down the track slows everything flying with it.
+    const delta = Math.min(rawDelta, 0.05) * pushTimeScale()
 
     drainBursts((burst) => {
       if (!enabled) return
-      const palette = PALETTES[burst.palette] || PALETTES.confetti
+      const palette = burst.colors || PALETTES[burst.palette] || PALETTES.confetti
       for (let i = 0; i < burst.count; i += 1) {
         const index = next.current
         next.current = (next.current + 1) % POOL

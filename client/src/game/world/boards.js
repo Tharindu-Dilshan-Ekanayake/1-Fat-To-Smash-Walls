@@ -4,7 +4,7 @@ import { formatNumber } from '@shared/format'
 export const BOARD_INFO = {
   rebirths: { title: 'Most Rebirths', color: '#ff5c8a', format: (v) => formatNumber(v) },
   fat: { title: 'Fattest', color: '#ffb21e', format: (v) => formatNumber(v) },
-  height: { title: 'Furthest Roll', color: '#4fc3ff', format: (v) => `${formatNumber(v)} m` },
+  height: { title: 'Furthest Run', color: '#4fc3ff', format: (v) => `${formatNumber(v)} m` },
 }
 
 /** Rows for a board: the server's top 10, or just you when offline. */

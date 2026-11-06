@@ -46,9 +46,9 @@ const zoneBlurb = (product) => {
 
 const BLURBS = {
   fatX2: 'Double the Fat from every bite, forever',
-  coinsX2: 'Double the Coins from every roll, forever',
+  coinsX2: 'Double the Coins from every run, forever',
   fatX3: 'Triple the Fat from every bite, forever',
-  coinsX3: 'Triple the Coins from every roll, forever',
+  coinsX3: 'Triple the Coins from every run, forever',
   vip: 'x1.5 Fat and x1.5 Coins, forever',
   potionsFat: 'Three x2 Fat potions, cheaper',
   potionsCoins: 'Three x2 Coins potions, cheaper',

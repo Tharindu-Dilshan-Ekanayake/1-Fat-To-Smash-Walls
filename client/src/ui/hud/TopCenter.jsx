@@ -12,7 +12,7 @@ const touch = typeof window !== 'undefined' && (window.matchMedia?.('(pointer: c
 
 /**
  * What the guide tells a new player right now - its step, with the Fat to eat up to
- * where it asks for some, and how to start rolling when you're on the ROLL ZONE - until
+ * where it asks for some, and how to start running when you're on the SMASH ZONE - until
  * the guide's done; after that, nothing. (Max level has its own call to rebirth, up top:
  * RebirthNotice.)
  */
@@ -24,8 +24,8 @@ function useHint() {
   const current = TUTORIAL[step]
   if (!current) return null
   if (atRollZone) {
-    if (hungry) return { key: 'hungry', text: 'Eat some food first - Fat is what you roll on!' }
-    return { key: 'roll', text: touch ? 'Hold the ROLL! button to roll down the hill!' : 'Hold E to roll down the hill!' }
+    if (hungry) return { key: 'hungry', text: 'Eat some food first - Fat is what smashes walls!' }
+    return { key: 'run', text: touch ? 'Hold the RUN! button to charge at the walls!' : 'Hold E to charge at the walls!' }
   }
   if (current.fat && fat < current.fat) return { key: current.text, text: `${current.text} ${formatNumber(fat)}/${current.fat}` }
   return { key: current.text, text: current.text }
@@ -35,7 +35,7 @@ function useHint() {
  * The big hint under the level bar, as in the reference. A tutorial step stays up until
  * it's done; any other hint shows for about three seconds and fades (pp-hint), so it's
  * never in the way of playing. Keyed on the hint, so a new one starts it again. Paused
- * while the HUD is out of sight (rolling, a panel open), so a hint is never used up
+ * while the HUD is out of sight (running, a panel open), so a hint is never used up
  * unseen.
  */
 export function TopCenter() {

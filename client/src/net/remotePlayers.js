@@ -47,7 +47,8 @@ export function upsertRemotePlayer(sessionId, state) {
       pushX: 0,
       shownMeter: 0,
       shownX: 0,
-      roll: 0,
+      /** Running down the track: how tall they're drawn (their name tag goes over it). */
+      drawnHeight: 1.8,
       /** Walking a SAFEZONE: which way they face, and how fast they go. */
       climbYaw: Math.PI,
       climbSpeed: 0,

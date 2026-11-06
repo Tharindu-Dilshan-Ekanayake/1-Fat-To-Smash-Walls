@@ -27,21 +27,29 @@ const LOOK_SMOOTHING = 14
 
 const _desired = new Vector3()
 const _target = new Vector3()
-/** A smashed tape's jolt this frame. */
+/** A smashed wall's jolt this frame. */
 const _shake = new Vector3()
 /** Where the camera is looking, eased towards its target (one camera, so module-level). */
 const _lookAt = new Vector3()
 
-/** Down the track: how far behind (uphill of) and above the roller the chase camera rides. */
-const CHASE_BEHIND = 8.5
-const CHASE_HEIGHT = 4.4
-/** It looks this far ahead of the roller, down the track. */
+/**
+ * Down the track: how far behind (uphill of) and above the runner the chase camera rides
+ * - further back and higher the bigger your belly (how far it sticks out, push.radius).
+ */
+const CHASE_BEHIND = 7.2
+const CHASE_BEHIND_PER_BELLY = 1.6
+const CHASE_HEIGHT = 3.4
+const CHASE_HEIGHT_PER_BELLY = 1.1
+/** It looks this far ahead of the runner, down the track. */
 const CHASE_AHEAD = 7
-const CHASE_LOOK_HEIGHT = 0.6
+const CHASE_LOOK_HEIGHT = 1.1
 const CHASE_SMOOTHING = 6
-/** How hard a smashed tape shakes the camera, and how fast that settles. */
+/** How hard a smashed wall shakes the camera, and how fast that settles. */
 const SHAKE_SIZE = 0.35
 const SHAKE_DECAY = 5
+/** Bursting through a wall the view widens in a rush (degrees), settling at this rate. */
+const PUNCH_FOV = 9
+const PUNCH_DECAY = 2.6
 
 const smoothstep = (a, b, x) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
@@ -49,28 +57,35 @@ const smoothstep = (a, b, x) => {
 }
 
 /**
- * Where the chase camera wants to be while rolling, and what it looks at: behind and
- * above you, looking down the track; drawn back and up when you roll to a stop, worn
- * out; swung out to your side at the end of the track, onto you cheering. A tape just
- * smashed shakes it.
+ * Where the chase camera wants to be while running, and what it looks at: behind and
+ * above you, looking down the track; drawn back and up when a wall throws you back;
+ * swung out to your side at the end of the track, onto you cheering. A wall just smashed
+ * shakes it.
  */
 function chaseTarget(out, look) {
   const m = push.meter
   const x = push.x
+  const behind = CHASE_BEHIND + CHASE_BEHIND_PER_BELLY * push.radius
+  const height = CHASE_HEIGHT + CHASE_HEIGHT_PER_BELLY * push.radius
   if (push.phase === 'top') {
     const k = smoothstep(0, 1.4, (performance.now() - push.endedAt) / 1000)
-    feetPoint(m - CHASE_BEHIND * (1 - k) - 1.5 * k, x * 0.5 + 3 * k, out)
-    out.y += CHASE_HEIGHT - 1.4 * k
+    // Stood off to your side, far enough to fit all of you - and the trophy behind you.
+    feetPoint(m - behind * (1 - k) - (2 + 2 * push.radius) * k, x * 0.5 + (3.5 + 3.5 * push.radius) * k, out)
+    out.y += height - (1.6 - 0.4 * push.radius) * k
     feetPoint(m + 3.5 * k, x, look)
-    look.y += 1.8 + 0.8 * k
+    look.y += 1.6 + (0.4 + 0.6 * push.radius) * k
     return
   }
   const tired = push.phase === 'blocked' ? smoothstep(0, 0.9, (performance.now() - push.endedAt) / 1000) : 0
-  feetPoint(m - CHASE_BEHIND - 2 * tired, x * 0.5 + 2 * tired, out)
-  out.y += CHASE_HEIGHT + 2 * tired
+  feetPoint(m - behind - 2 * tired, x * 0.5 + 2 * tired, out)
+  out.y += height + 2 * tired
   feetPoint(m + CHASE_AHEAD * (1 - tired), x * 0.7, look)
   look.y += CHASE_LOOK_HEIGHT + 0.6 * tired
 }
+
+/** The camera's own field of view, and what it's set to now (only touched when it changes). */
+let baseFov = 0
+let shownFov = 0
 
 /**
  * Third-person orbit camera around the player.
@@ -161,20 +176,34 @@ export function FollowCamera() {
     }
   }, [gl])
 
-  useFrame((_state, rawDelta) => {
+  useFrame((state, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05)
+    // Bursting through a wall: the view rushes wide and settles back.
+    const lens = state.camera
+    if (!baseFov) {
+      baseFov = lens.fov
+      shownFov = lens.fov
+    }
+    const fov = runtime.camera.mode === 'push' ? baseFov + PUNCH_FOV * push.punch : baseFov
+    if (Math.abs(fov - shownFov) > 0.01) {
+      shownFov = Math.abs(fov - baseFov) < 0.02 ? baseFov : fov
+      lens.fov = shownFov
+      lens.updateProjectionMatrix()
+    }
     if (runtime.camera.mode === 'push') {
       // Eased towards, so taking over from the orbit camera is a swoop, not a cut.
       chaseTarget(_desired, _target)
       const k = 1 - Math.exp(-CHASE_SMOOTHING * delta)
       camera.position.lerp(_desired, k)
       _lookAt.lerp(_target, k)
-      // A tape just smashed: a jolt, settling fast (on top of the easing, so it's felt).
+      // A wall just smashed: a jolt, settling fast (on top of the easing, so it's felt).
       if (push.shake > 0.001) {
         const t = performance.now() * 0.06
         camera.position.add(_shake.set(Math.sin(t * 1.7), Math.sin(t * 2.3), 0).multiplyScalar(push.shake * SHAKE_SIZE))
         push.shake *= Math.exp(-SHAKE_DECAY * delta)
       }
+      if (push.punch > 0.001) push.punch *= Math.exp(-PUNCH_DECAY * delta)
+      else push.punch = 0
       camera.lookAt(_lookAt)
       return
     }

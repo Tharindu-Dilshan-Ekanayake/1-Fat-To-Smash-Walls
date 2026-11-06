@@ -8,14 +8,14 @@ import { createBoxInstances, disposeBlocks } from '../blocks'
 import { sharedMaterials, STYLE } from '../materials'
 import { STAGES } from './course'
 import { tiltAt } from './path'
-import { push } from './pushControl'
+import { push, pushTimeScale } from './pushControl'
 import { STAGE_THEMES } from './themes'
 
 /** Dust pieces in flight at once. */
 const DUST = 64
 const GRAVITY = 9
 
-/** On down the track, and out of its floor, where you're rolling: tipped on a slope, level on a flat. */
+/** On down the track, and out of its floor, where you're running: tipped on a slope, level on a flat. */
 const _forward = new Vector3()
 const _normal = new Vector3()
 const WHITE = new Color('#ffffff')
@@ -30,12 +30,13 @@ const _s = new Vector3()
 const dust = Array.from({ length: DUST }, () => ({ life: 0, max: 1, size: 0.2, pos: new Vector3(), vel: new Vector3() }))
 
 /**
- * Throws `count` dust pieces from where your ball meets the floor, out to the sides and
- * back up the slope behind you. `st.next` is the pool's write head.
+ * Throws `count` dust pieces kicked up from under your feet, out to the sides and back up
+ * the slope behind you. `st.next` is the pool's write head.
  */
 function emit(pieces, st, count, spread, lift) {
   const color = STAGES[push.stage] ? dustColor(STAGES[push.stage].id) : WHITE
-  const r = push.radius
+  // Your feet are further apart the fatter you are (the belly sticks out further).
+  const r = 0.35 + 0.45 * push.radius
   const t = tiltAt(push.meter)
   _forward.set(0, Math.sin(t), -Math.cos(t))
   _normal.set(0, Math.cos(t), Math.sin(t))
@@ -57,9 +58,9 @@ function emit(pieces, st, count, spread, lift) {
 }
 
 /**
- * The roll's dust, on presets with particles: grit spraying from under you as you roll,
- * and a puff when you flop down worn out. A fixed pool, one draw call, nothing drawn
- * when nothing's alive.
+ * The run's dust, on presets with particles: grit kicked up from under your feet as you
+ * sprint, and a puff when a wall throws you down. A fixed pool, one draw call, nothing
+ * drawn when nothing's alive.
  */
 export function PushFX() {
   const ref = useRef(null)
@@ -83,13 +84,13 @@ export function PushFX() {
   useFrame((_frame, rawDelta) => {
     const mesh = ref.current
     if (!mesh) return
-    const delta = Math.min(rawDelta, 0.05)
+    const delta = Math.min(rawDelta, 0.05) * pushTimeScale()
     const on = getQuality().particles
     const st = state.current
 
     if (push.active && on) {
       const speed = Math.abs(push.speed)
-      if (speed > 0.6 && push.phase === 'roll') {
+      if (speed > 0.6 && push.phase === 'run') {
         st.owed += delta * Math.min(30, 4 + speed * 3)
         const n = Math.floor(st.owed)
         st.owed -= n

@@ -3,8 +3,8 @@ gameId: get-fat-to-break-tape
 clientDir: client
 buildCommand: npm run build
 distDir: client/dist
-# Nobody dies: running out of Fat just ends your roll down the track, and you're back
-# in the lobby.
+# Nobody dies: a brick wall too strong for your Fat just ends your run down the track,
+# and you're back in the lobby.
 canDie: false
 # Leaderboards, declared by the client and scored by the server.
 hasScore: true

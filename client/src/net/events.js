@@ -68,7 +68,7 @@ export function handleServerEvent(type, payload) {
       break
 
     case 'tape':
-      // We smash tapes the moment our own ball reaches them (pushControl), before the
+      // We smash walls the moment our own belly bursts them (pushControl), before the
       // authority hears; this is it paying for one - nothing more to show.
       break
 

@@ -20,12 +20,12 @@ const stageGradient = (i) => {
   return `linear-gradient(180deg, ${a} 0%, ${b} 45%, ${c} 100%)`
 }
 const SAFE_GRADIENT = 'linear-gradient(180deg, #ffffff 0%, #e6fbff 45%, #7fe2ff 100%)'
-/** How often the frame-rate roll numbers are copied into the DOM. */
+/** How often the frame-rate run numbers are copied into the DOM. */
 const UPDATE_MS = 1000 / 15
 
 /**
- * Your Fat across the top - the power behind your roll - and beside it the Coins this
- * roll has made. Written from the frame-rate roll state by a timer, never by React.
+ * Your Fat across the top - the power behind your belly - and beside it the Coins this
+ * run has made. Written from the frame-rate run state by a timer, never by React.
  */
 function FatCounter() {
   const ref = useRef(null)
@@ -77,8 +77,8 @@ function FatCounter() {
 }
 
 /**
- * Where you are: the stage's name and how far you've rolled, under the counter. Moved
- * from the frame-rate roll state by a timer, never by React.
+ * Where you are: the stage's name and how far you've run, under the counter. Moved
+ * from the frame-rate run state by a timer, never by React.
  */
 function Where() {
   const stageRef = useRef(null)
@@ -88,7 +88,7 @@ function Where() {
     let shownMeter = -1
     const id = setInterval(() => {
       const meter = Math.max(0, push.meter)
-      // Down a slope, its stage's name; on the flat past a tape, CHECKPOINT.
+      // Down a slope, its stage's name; on the flat past a wall, CHECKPOINT.
       const si = stageAt(meter)
       const flat = meter > 0 && meter < TRACK_LENGTH && !isSlope(meter)
       const key = flat ? 'flat' : si
@@ -122,9 +122,9 @@ function Where() {
 }
 
 /**
- * Speed lines streaming in from the edges while you roll flat out - stronger in the burst
- * off a smashed tape. On presets with them only (a full-screen overlay costs a weak phone
- * more than it's worth). Faded by a timer from the frame-rate roll state, never by React.
+ * Speed lines streaming in from the edges while you run flat out - stronger in the burst
+ * off a smashed wall. On presets with them only (a full-screen overlay costs a weak phone
+ * more than it's worth). Faded by a timer from the frame-rate run state, never by React.
  */
 function SpeedLines() {
   const on = useQuality((s) => s.settings.speedLines)
@@ -135,7 +135,7 @@ function SpeedLines() {
     const id = setInterval(() => {
       const el = ref.current
       if (!el) return
-      const fast = push.active && push.phase === 'roll' ? Math.max(0, (push.speed - RUN_SPEED * 0.8) / (RUN_SPEED * 0.45)) : 0
+      const fast = push.active && push.phase === 'run' ? Math.max(0, (push.speed - RUN_SPEED * 0.8) / (RUN_SPEED * 0.45)) : 0
       const opacity = Math.round(Math.min(1, fast) * 20) / 20
       if (opacity === shown) return
       shown = opacity
@@ -147,7 +147,7 @@ function SpeedLines() {
   return <div ref={ref} className="pp-speedlines pointer-events-none absolute inset-0" style={{ opacity: 0 }} />
 }
 
-/** The big message of the moment: a tape smashed, out of Fat, or the end of the track. */
+/** The big message of the moment: a wall smashed, one too strong, or the end of the track. */
 function Banner() {
   const banner = useGame((s) => s.pushBanner)
   if (!banner) return null
@@ -160,15 +160,15 @@ function Banner() {
           </StrokeText>
         </span>
         <span className="flex items-center" style={{ fontSize: u(46), gap: u(8) }}>
-          <StrokeText stroke={u(9)}>This tape needs</StrokeText>
+          <StrokeText stroke={u(9)}>This wall needs</StrokeText>
           <Icon name="fat" size={u(58)} />
           <StrokeText stroke={u(9)} gradient={GRADIENTS.gold}>
             {`${formatNumber(banner.need)} Fat`}
           </StrokeText>
         </span>
         <span className="flex items-center" style={{ fontSize: u(50), gap: u(10) }}>
-          <Icon name="tape" size={u(64)} />
-          <StrokeText stroke={u(10)}>{`${banner.tapes} ${banner.tapes === 1 ? 'tape' : 'tapes'} smashed`}</StrokeText>
+          <Icon name="wall" size={u(64)} />
+          <StrokeText stroke={u(10)}>{`${banner.walls} ${banner.walls === 1 ? 'wall' : 'walls'} smashed`}</StrokeText>
           <Icon name="coin" size={u(64)} />
           <StrokeText stroke={u(10)} gradient={GRADIENTS.gold}>
             {`+${formatNumber(banner.coins)}`}
@@ -185,7 +185,7 @@ function Banner() {
     <div key={banner.id} className="pp-banner pointer-events-none absolute left-1/2 top-[40%] flex flex-col items-center text-center">
       <span style={{ fontSize: u(top ? 110 : 90) }}>
         <StrokeText stroke={u(18)} gradient={top ? GRADIENTS.rainbow : stageGradient(Math.min(STAGES.length - 1, banner.stage ?? 0))}>
-          {top ? 'YOU ROLLED ALL THE WAY!' : banner.streak > 1 ? `TAPE SMASHED! x${banner.streak}` : 'TAPE SMASHED!'}
+          {top ? 'YOU SMASHED THEM ALL!' : banner.streak > 1 ? `WALL SMASHED! x${banner.streak}` : 'WALL SMASHED!'}
         </StrokeText>
       </span>
       <span className="flex items-center" style={{ fontSize: u(66), gap: u(10) }}>
@@ -198,7 +198,7 @@ function Banner() {
   )
 }
 
-/** For a brand-new player's first rolls: how to steer. */
+/** For a brand-new player's first runs: how to steer. */
 function SteerHint() {
   const guiding = useGame((s) => s.profile.tutorialStep <= 1)
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
@@ -206,7 +206,7 @@ function SteerHint() {
   return (
     <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-center" style={{ bottom: u(124), fontSize: u(touch ? 28 : 32), width: 'max-content', maxWidth: '64vw', lineHeight: 1.15 }}>
       <StrokeText stroke={u(7)} gradient={GRADIENTS.gold} className="pp-wrap">
-        {touch ? 'Smash every tape your Fat is big enough for!' : 'Smash every tape your Fat is big enough for! (A / D to steer)'}
+        {touch ? 'Smash every wall your Fat is big enough for!' : 'Smash every wall your Fat is big enough for! (A / D to steer)'}
       </StrokeText>
     </div>
   )
@@ -243,7 +243,7 @@ function LobbyButton() {
   )
 }
 
-/** Rolling down the track: your Fat and Coins, where you are, the banners, and the way back. */
+/** Running down the track: your Fat and Coins, where you are, the banners, and the way back. */
 export function PushHud() {
   const pushing = useGame((s) => s.pushing)
   if (!pushing) return null

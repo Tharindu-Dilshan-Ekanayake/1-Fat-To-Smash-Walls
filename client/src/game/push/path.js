@@ -6,9 +6,9 @@ import { SLOPE_ANGLE, TRACK_START_Z } from '@shared/world'
 import { isSlope, SLOPES_BELOW, STAGES, stageAt, stageStart, TRACK_LENGTH } from './course'
 
 /**
- * Geometry of the tape track of the world you're in (see course.js): it runs north from
+ * Geometry of the track of the world you're in (see course.js): it runs north from
  * the plaza's edge and down into the valley (SLOPE_ANGLE is negative), each stage a
- * straight slope with a tape across its end, a flat checkpoint between one stage and
+ * straight slope with a brick wall across its end, a flat checkpoint between one stage and
  * the next, and a flat finish at the end.
  *
  * Track metre `m` is measured along the track from the start line (the plaza's north
@@ -67,7 +67,7 @@ function slopeWeight(m, j) {
   return clamp01((m - s + BEND) / (2 * BEND)) * clamp01((s + STAGES[j].length - m + BEND) / (2 * BEND))
 }
 
-/** The tilt something riding the track at metre m takes, eased round the bends so a roller never jumps. */
+/** The tilt something riding the track at metre m takes, eased round the bends so nothing jumps. */
 export function tiltAt(m) {
   if (m <= -BEND) return 0
   const i = stageAt(m)
@@ -84,7 +84,7 @@ export function surfaceY(z, h) {
 
 /**
  * World point at track metre m, `x` to the side and `h` off the floor along its normal
- * (so a ball sits on it, square to the slope).
+ * (square to the slope).
  */
 export function trackPoint(m, x, h, out) {
   const t = tiltAt(m)
@@ -107,11 +107,13 @@ export function slopeBoxPlacement(m, x, h) {
   return [_p.x, _p.y, _p.z, t]
 }
 
-// --- The ball you roll as -------------------------------------------------------------
+// --- The belly you smash walls with ---------------------------------------------------
 
 /**
- * Curled up for a roll, a body of `bulk` (0 skinny - 1 as fat as can be, see
- * playerPose.bulkFor) is a ball about this many metres across its middle: what it rolls
- * on, so how fast it turns, and how close a coin bubble must come to be taken.
+ * How far in front of your feet the front of your belly is (m), for a body of `bulk` (0
+ * skinny - 1 as fat as can be, see playerPose.bulkFor) at drawn size 1: what hits the
+ * walls. From fatBody's torso, skinny to fat (multiply by the drawn size).
  */
-export const ballRadius = (bulk = 0) => 0.46 + 0.3 * Math.min(1, Math.max(0, bulk))
+export const bellyReach = (bulk = 0) => 0.14 + 0.78 * Math.min(1, Math.max(0, bulk))
+/** How high the middle of your belly is over your feet (m) at drawn size 1. */
+export const BELLY_HEIGHT = 0.92

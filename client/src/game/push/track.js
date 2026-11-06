@@ -7,17 +7,18 @@ import { addTree } from '../world/terrain'
 import { isSlope, safeStart, STAGES, stageAt, stageStart, TRACK, TRACK_LENGTH } from './course'
 import { RIM_X, slopeBoxPlacement, surfaceY, zAt } from './path'
 import { SAFE_THEME, STAGE_THEMES } from './themes'
+import { pillarColor, WALL_HEIGHT } from './wallLook'
 
 /**
- * The tape track down the valley, generated in 40 m chunks on demand. Each chunk is a
+ * The track down the valley, generated in 40 m chunks on demand. Each chunk is a
  * BlockSet (one draw call); content is seeded by chunk index, so every client builds an
  * identical valley and a chunk can be thrown away and rebuilt at will.
  *
  * Cross-section: a narrow tiled floor between tall stepped cliffs of big square studs -
  * a low step, a higher one and the rim - with a ledge running out beyond the rim and
  * scenery on the steps and the ledge. Along it, each stage's slope with glowing chevrons
- * down the middle, then the striped posts its tapes are strung between (the tapes are
- * Tapes.jsx's), then a flat light-blue checkpoint, then the next stage's slope.
+ * down the middle, then the stone pillars its brick wall stands between (the walls are
+ * Walls.jsx's), then a flat light-blue checkpoint, then the next stage's slope.
  * Everything structural lies along the track (tipped on the slopes, level on the flats);
  * trees and props stand upright.
  */
@@ -34,7 +35,7 @@ const RIM_H = STEPS[STEPS.length - 1][2]
 /** How far the ledge beyond the rim runs: short beside the lobby, wide after. */
 const LEDGE_NEAR = RIM_X + 10
 const LEDGE_FAR = 95
-/** The finish: a flat stretch past the last tape, then a wall. */
+/** The finish: a flat stretch past the last brick wall, then the valley's end wall. */
 export const SUMMIT_LENGTH = 34
 export const trackEnd = () => TRACK_LENGTH + SUMMIT_LENGTH
 /** No scenery on the first chunk, where the lobby's mountains stand beside the track. */
@@ -158,25 +159,27 @@ function walls(b, a, c, theme, wide, kind) {
 }
 
 /**
- * The posts tape `stage`'s wall of tape is stretched between, at metre `m`: a big orange
- * and white striped traffic post either side of the floor, on a dark foot, with a cap and
- * a light in the stage's colour on top.
+ * The pillars stage `stageId`'s brick wall stands between, at metre `m`: a chunky stone
+ * pillar either side of the floor, a shade darker than the wall's bricks, on a dark
+ * plinth, with a cap and a lamp in the stage's colour on top.
  */
-function tapeGate(b, m, theme) {
+function wallGate(b, m, theme, stageId) {
   const [, py, pz] = slopeBoxPlacement(m, 0, 0)
+  const stone = pillarColor(stageId)
+  const top = WALL_HEIGHT + 0.25
   for (const side of [-1, 1]) {
-    const x = side * (HALF - 0.12)
-    b.addOn(x, py - 0.3, pz, 1.0, 0.45, 1.0, '#2c313c', STYLE.SMOOTH)
-    b.addOn(x, py + 0.1, pz, 0.78, 3.6, 0.78, '#ff6a1a', STYLE.STRIPES)
-    b.addOn(x, py + 3.7, pz, 0.9, 0.28, 0.9, '#ff6a1a', STYLE.SMOOTH)
-    b.addOn(x, py + 3.98, pz, 0.42, 0.3, 0.42, theme.gate, STYLE.GLOW)
+    const x = side * (HALF - 0.1)
+    b.addOn(x, py - 0.3, pz, 1.25, 0.55, 1.25, '#2c313c', STYLE.SMOOTH)
+    b.addOn(x, py + 0.2, pz, 0.95, top - 0.2, 0.95, stone, STYLE.BLOCK)
+    b.addOn(x, py + top, pz, 1.15, 0.3, 1.15, stone, STYLE.SMOOTH)
+    b.addOn(x, py + top + 0.3, pz, 0.5, 0.36, 0.5, theme.gate, STYLE.GLOW)
   }
 }
 
 /**
- * The checkpoint below stage `i` (its look is walls'): the posts of the tape it starts
- * with, a glowing line across just past them, and a line in the next stage's colour
- * where the next slope starts.
+ * The checkpoint below stage `i` (its look is walls'): the pillars of the brick wall it
+ * starts with, a glowing line across just past them, and a line in the next stage's
+ * colour where the next slope starts.
  */
 function safezone(b, i) {
   const a = safeStart(i)
@@ -184,14 +187,14 @@ function safezone(b, i) {
     const [x, y, z] = slopeBoxPlacement(m, 0, 0.05)
     b.add(x, y, z, HALF * 2 - 0.2, 0.1, 0.5, color, STYLE.GLOW)
   }
-  tapeGate(b, a, STAGE_THEMES[STAGES[i - 1].id])
+  wallGate(b, a, STAGE_THEMES[STAGES[i - 1].id], STAGES[i - 1].id)
   line(a + 0.8, '#e8f7ff')
   line(stageStart(i) - 0.4, STAGE_THEMES[STAGES[i].id].gate)
 }
 
-/** The finish: the last tape's posts, a golden platform, a giant trophy on a plinth, and the valley's end wall. */
-function summit(b, theme) {
-  tapeGate(b, TRACK_LENGTH, theme)
+/** The finish: the last brick wall's pillars, a golden platform, a giant trophy on a plinth, and the valley's end wall. */
+function summit(b, theme, stageId) {
+  wallGate(b, TRACK_LENGTH, theme, stageId)
   const m = TRACK_LENGTH + SUMMIT_LENGTH * 0.62
   const [px, py, pz, rotX] = slopeBoxPlacement(TRACK_LENGTH + SUMMIT_LENGTH / 2, 0, 0.06)
   b.add(px, py, pz, HALF * 2 - 0.4, 0.12, SUMMIT_LENGTH - 1, '#ffd21f', STYLE.PLATE, 0, rotX)
@@ -743,7 +746,7 @@ export function buildChunk(index, { density = 1 } = {}) {
     const c = cuts[i + 1]
     const mid = (a + c) / 2
     const kind = mid > TRACK_LENGTH ? 'summit' : isSlope(mid) ? 'slope' : 'safe'
-    // A checkpoint looks like the stage whose tape it is past; a slope like its own.
+    // A checkpoint looks like the stage whose wall it is past; a slope like its own.
     const stage = STAGES[kind === 'safe' ? stageAt(mid) - 1 : stageAt(mid)]
     walls(b, a, c, STAGE_THEMES[stage.id], wide, kind)
     DECOR[stage.id](b, a, c, rand, density)
@@ -752,7 +755,7 @@ export function buildChunk(index, { density = 1 } = {}) {
   for (let i = 1; i < STAGES.length; i += 1) {
     if (safeStart(i) >= m0 && safeStart(i) < m1) safezone(b, i)
   }
-  if (TRACK_LENGTH >= m0 && TRACK_LENGTH < m1) summit(b, STAGE_THEMES[STAGES[STAGES.length - 1].id])
+  if (TRACK_LENGTH >= m0 && TRACK_LENGTH < m1) summit(b, STAGE_THEMES[STAGES[STAGES.length - 1].id], STAGES[STAGES.length - 1].id)
   return b
 }
 

@@ -195,7 +195,7 @@ const SECTION = (() => {
   }
 })()
 
-/** The section signs, the free reward, the portal, the statue's challenge and the ROLL ZONE's. */
+/** The section signs, the free reward, the portal, the statue's challenge and the SMASH ZONE's. */
 function placeLabels() {
   const portal = PORTALS[0]
   return [
@@ -221,15 +221,15 @@ function placeLabels() {
     {
       id: 'statue',
       position: [STATUE.x, 13.8, STATUE.z],
-      spec: { lines: [{ text: 'HOW FAR CAN', size: 46, fill: '#ffffff' }, { text: 'YOU ROLL?', size: 62, gradient: TEXT.gold }], pxPerUnit: 40 },
+      spec: { lines: [{ text: 'HOW FAR CAN', size: 46, fill: '#ffffff' }, { text: 'YOU SMASH?', size: 62, gradient: TEXT.gold }], pxPerUnit: 40 },
       fade: 140,
     },
     {
-      // (The id is older than the ROLL ZONE; the ticker relabels it by this name.)
+      // (The id is older than the SMASH ZONE; the ticker relabels it by this name.)
       id: START_LABEL_ID,
       position: [0, 6.6, TRACK_START_Z + 0.5],
       spec: startLabelSpec(),
-      // Room for the biggest first tape of any world.
+      // Room for the biggest first wall of any world.
       reserve: WORLDS.map((_, world) => startLabelSpec(world)).reduce((a, b) => (b.lines[1].text.length > a.lines[1].text.length ? b : a)),
       fade: 110,
     },
@@ -237,16 +237,15 @@ function placeLabels() {
 }
 
 /**
- * The ROLL ZONE's sign, at the start of the track: what the first tape of the world
- * you're in (or `world`) takes. Tapes need every stage's Fat up to theirs, so the first
- * one's is the Fat it takes to smash any tape at all.
+ * The SMASH ZONE's sign, at the start of the track: what the first brick wall of the
+ * world you're in (or `world`) takes - the Fat it takes to smash any wall at all.
  */
 export function startLabelSpec(world = WORLD) {
-  const tape = (TRACKS[world] ?? TRACKS[0]).tapes[0]
+  const wall = (TRACKS[world] ?? TRACKS[0]).tapes[0]
   return {
     lines: [
-      { text: 'ROLL ZONE', size: 54, gradient: TEXT.orange },
-      { text: `First tape needs ${formatNumber(tape.need)} Fat`, size: 38, icon: 'fat', gradient: TEXT.gold },
+      { text: 'SMASH ZONE', size: 54, gradient: TEXT.orange },
+      { text: `First wall needs ${formatNumber(wall.need)} Fat`, size: 38, icon: 'fat', gradient: TEXT.gold },
     ],
     pxPerUnit: 46,
   }

@@ -23,9 +23,9 @@ export const actions = {
   leaveZone: () => send('leaveZone'),
   /** Starts a roll down the track; only counts standing on the ROLL ZONE (walking onto it sends it). */
   startPush: () => send('startPush'),
-  /** Where you've got to down the track (a few times a second while rolling). */
+  /** Where you've got to down the track (a few times a second while running). */
   pushAt: (meter, x) => send('pushAt', { meter, x }),
-  /** The roll is over: 'blocked' (thrown back by a tape too strong), 'top' (the end of the track) or 'left'. */
+  /** The run is over: 'blocked' (thrown back by a wall too strong), 'top' (the end of the track) or 'left'. */
   endPush: (reason) => send('endPush', { reason }),
   /** A Boxity emote started ('' when it stops), so the room sees it. */
   emote: (id) => send('emote', { id }),

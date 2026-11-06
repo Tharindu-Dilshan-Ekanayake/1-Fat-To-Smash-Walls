@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Vector3 } from 'three'
 
-import { walkSpeed } from '@shared/balance'
+import { RUN_SPEED, walkSpeed } from '@shared/balance'
 
 import { remotePlayers } from '../../net/remotePlayers'
 import { getQuality } from '../../store/quality'
@@ -21,10 +21,10 @@ const POSE_HALF = 30
 const POSE_QUARTER = 60
 /** Top walking speed: full stride amplitude, as for your own character. */
 const MAX_SPEED = walkSpeed()
-/** Facing down the track, rolling. */
+/** Facing down the track, running. */
 const DOWNHILL_YAW = Math.PI
-/** Curled up, the middle of the ball above the feet's standing spot (skinny -> fat), as for yours. */
-const BALL_MIDDLE = [0.95, 1.2]
+/** Running cadence (stride phase per second) at a standstill and per RUN_SPEED, as for yours. */
+const SPRINT_CADENCE = [8, 5]
 /** A bite (up to the mouth, three chomps, down) takes this long, as for your own character. */
 const CURL_MS = 640
 
@@ -34,17 +34,15 @@ const _up = new Vector3(0, 1, 0)
  * One other player as their real Bloxity avatar, dressed as they are, as fat as they
  * are, holding their food and posed by the same playerPose as yours, from what the
  * network says they're doing: walking pace, eating at a Food Court or after a click,
- * jumping - and rolling down the track, curled up in a ball.
+ * jumping - and sprinting down the track, smashing walls belly-first.
  */
 function RemoteAvatar({ sessionId, look }) {
   const groupRef = useRef(null)
   const handRef = useRef(null)
   const heldRef = useRef(null)
-  const rollRef = useRef(null)
-  const ballRef = useRef(null)
   const lastY = useRef(null)
   const food = useMemo(() => createHeldFood(), [])
-  const motionRef = useRef({ time: 0, speed: 0, grounded: true, maxSpeed: MAX_SPEED, vy: 0, stride: 0, rolling: false, curl: 0, training: false, bulk: -1 })
+  const motionRef = useRef({ time: 0, speed: 0, grounded: true, maxSpeed: MAX_SPEED, vy: 0, stride: 0, dashing: false, curl: 0, training: false, bulk: -1 })
 
   useEffect(() => () => disposeHeldFood(food), [food])
 
@@ -66,26 +64,27 @@ function RemoteAvatar({ sessionId, look }) {
     held?.setFood?.(r.foodId)
     group.scale.setScalar(1 + FAT_SCALE * Math.min(1, m.bulk))
 
-    // Rolling down the track, curled up in a ball.
+    // Sprinting down the track.
     if (r.pushing) {
       group.visible = !hidden
       group.position.copy(r.shownAt)
       group.quaternion.setFromAxisAngle(_up, DOWNHILL_YAW)
-      if (rollRef.current) rollRef.current.rotation.x = r.roll
-      if (ballRef.current) ballRef.current.position.y = -(BALL_MIDDLE[0] + (BALL_MIDDLE[1] - BALL_MIDDLE[0]) * m.bulk)
       if (held) held.visible = false
-      m.rolling = true
+      m.dashing = true
       m.speed = r.pushSpeed
+      m.stride += delta * (SPRINT_CADENCE[0] + SPRINT_CADENCE[1] * Math.min(1.6, Math.max(0, r.pushSpeed) / RUN_SPEED))
       m.grounded = true
       m.training = false
       m.curl = 0
+      m.ram = 0
+      // Stopped dead on the track: bounced off a wall, sat there dizzy.
+      m.tired = r.pushSpeed < 0.3 && r.shownMeter > 1 ? Math.min(1, (m.tired ?? 0) + delta * 2) : 0
       m.emoteClip = null
       lastY.current = null
       return
     }
-    m.rolling = false
-    if (rollRef.current) rollRef.current.rotation.x = 0
-    if (ballRef.current) ballRef.current.position.y = 0
+    m.dashing = false
+    m.tired = 0
     if (held) held.visible = true
 
     // Mid-roll but we never saw it start (we joined late): not drawn at the top.
@@ -112,13 +111,9 @@ function RemoteAvatar({ sessionId, look }) {
 
   return (
     <group ref={groupRef}>
-      <group ref={rollRef}>
-        <group ref={ballRef}>
-          <BloxityAvatar equipped={look?.equipped} proportions={look?.proportions} motionRef={motionRef} handRef={handRef} targetHeight={1.8} />
-          <group ref={handRef}>
-            <primitive ref={heldRef} object={food} />
-          </group>
-        </group>
+      <BloxityAvatar equipped={look?.equipped} proportions={look?.proportions} motionRef={motionRef} handRef={handRef} targetHeight={1.8} />
+      <group ref={handRef}>
+        <primitive ref={heldRef} object={food} />
       </group>
     </group>
   )
@@ -126,7 +121,7 @@ function RemoteAvatar({ sessionId, look }) {
 
 /**
  * Every other player as their real Bloxity avatar, dressed as they are - standing,
- * walking, eating or rolling, however far away (the far ones just posed less often).
+ * walking, eating or running, however far away (the far ones just posed less often).
  * Each shows once it's dressed; until then, nothing - never a stand-in. Checked twice a
  * second, never per frame, so React only re-renders when the set of players (or an
  * outfit) actually changes.
