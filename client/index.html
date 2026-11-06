@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2f8ff2" />
+    <title>Belly Buster</title>
+
+    <!-- Bloxity SDK. Exposes itself as window.Legion.SDK. Async so it never blocks the
+         first paint; src/bloxity/sdk.js waits for it to appear. -->
+    <script async src="https://sdk.bloxity.io/v1/legion-sdk.min.js"></script>
+
+    <!-- The avatar base body, fetched from the very start: the game opens with your
+         avatar, so it mustn't wait for the scripts to ask for it (PlayerAvatar fetches
+         it with the same request). And the avatar CDN's connection, for the clothes.
+         The CDN is the one Boxity told this page (window.BLOXITY_ENV), else production -
+         the same rule as src/bloxity/env.js. -->
+    <script>
+      ;(function () {
+        var env = window.BLOXITY_ENV
+        var cdn = (env && env.apiUrl && env.staticUrl) || 'https://static.bloxity.io'
+        var head = document.head
+        var preconnect = document.createElement('link')
+        preconnect.rel = 'preconnect'
+        preconnect.href = cdn
+        preconnect.crossOrigin = 'anonymous'
+        head.appendChild(preconnect)
+        var body = document.createElement('link')
+        body.rel = 'preload'
+        body.as = 'fetch'
+        body.href = cdn + '/avatars/player.glb'
+        body.crossOrigin = 'anonymous'
+        body.setAttribute('fetchpriority', 'high')
+        head.appendChild(body)
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

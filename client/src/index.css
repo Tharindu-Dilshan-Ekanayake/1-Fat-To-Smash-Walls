@@ -1,0 +1,433 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  /* The game's own rounded lettering, everywhere. */
+  font-family: 'Fredoka One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /*
+   * HUD unit: one pixel of the 1920x1080 reference layout, scaled to fit the viewport
+   * and floored so touch targets stay usable on phones.
+   */
+  --px: clamp(0.42px, min(100vw / 1920, 100vh / 1080), 1.4px);
+  /* Where the level bar and the Coins/Fat counters sit above the bottom edge. */
+  --levelbar-bottom: calc(var(--px) * 18);
+  --stats-bottom: calc(var(--px) * 120);
+  /* How much further down the top-centre call-outs sit (below the top-right buttons). */
+  --notice-drop: 0px;
+}
+
+/*
+ * A phone held upright: the HUD laid out for a narrow 1180 x 1920 screen instead (smaller,
+ * so nothing runs off the sides), with the level bar and the Coins/Fat counters lifted
+ * above the EAT button and the joystick.
+ */
+@media (orientation: portrait) {
+  :root {
+    --px: clamp(0.25px, min(100vw / 1180, 100vh / 1920), 1.4px);
+    --levelbar-bottom: calc(var(--px) * 300);
+    --stats-bottom: calc(var(--px) * 520);
+    --notice-drop: calc(var(--px) * 120);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  background: #a6d6fb;
+}
+
+/* The R3F canvas fills its container; the HUD is absolutely positioned over it. */
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+.pp-font {
+  font-family: 'Fredoka One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* Outlined text, see StrokeText.jsx. */
+.pp-text {
+  position: relative;
+  display: inline-block;
+  font-family: 'Fredoka One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  white-space: nowrap;
+}
+.pp-text-stroke {
+  position: absolute;
+  inset: 0;
+  color: #000;
+  -webkit-text-stroke-color: #000;
+  -webkit-text-stroke-width: 6px;
+  text-shadow: 0 0.06em 0 #000;
+  pointer-events: none;
+  user-select: none;
+}
+.pp-text-fill {
+  position: relative;
+}
+/* Outlined text that may wrap onto more lines (hints, names) rather than run off the screen. */
+.pp-text.pp-wrap {
+  white-space: normal;
+}
+
+/* Single-element outline for small labels where a gradient isn't needed. */
+.pp-stroke {
+  font-family: 'Fredoka One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  color: #fff;
+  -webkit-text-stroke: 0.18em #000;
+  paint-order: stroke fill;
+}
+
+@keyframes pp-fly {
+  0% {
+    transform: translate(-30px, 8px) rotate(-4deg);
+  }
+  50% {
+    transform: translate(30px, -10px) rotate(4deg);
+  }
+  100% {
+    transform: translate(-30px, 8px) rotate(-4deg);
+  }
+}
+.pp-loading-disc {
+  animation: pp-fly 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 8px 0 rgba(0, 0, 0, 0.25));
+}
+
+/* Chunky press feel for every HUD button. */
+.pp-btn {
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.12s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pp-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.pp-btn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+.pp-btn:disabled {
+  cursor: default;
+}
+
+/*
+ * The game's chunky button: a thick dark lip under the face that it presses down
+ * into, and a glossy highlight across the top. --lip is the lip's height.
+ */
+.pp-chunky {
+  --lip: calc(var(--px) * 6);
+  box-shadow:
+    0 var(--lip) 0 #111,
+    0 calc(var(--lip) + var(--px) * 4) calc(var(--px) * 6) rgba(0, 0, 0, 0.3),
+    inset 0 calc(var(--px) * -5) 0 rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.07s ease-out,
+    box-shadow 0.07s ease-out,
+    filter 0.12s;
+}
+.pp-chunky:hover:not(:disabled) {
+  transform: translateY(calc(var(--px) * -2));
+  filter: brightness(1.07) saturate(1.05);
+}
+.pp-chunky:active:not(:disabled) {
+  transform: translateY(calc(var(--lip) - var(--px) * 1));
+  box-shadow:
+    0 calc(var(--px) * 1) 0 #111,
+    inset 0 calc(var(--px) * -3) 0 rgba(0, 0, 0, 0.2);
+}
+.pp-chunky:disabled {
+  filter: saturate(0.35) brightness(0.92);
+}
+.pp-chunky > * {
+  z-index: 1;
+}
+.pp-chunky > :not(.absolute) {
+  position: relative;
+}
+.pp-chunky > .pp-gloss {
+  position: absolute;
+  z-index: 0;
+  left: 6%;
+  right: 6%;
+  top: 7%;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.1) 100%);
+  pointer-events: none;
+}
+
+@keyframes pp-panel-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  to {
+    transform: none;
+  }
+}
+.pp-panel-in {
+  animation: pp-panel-in 0.22s ease-out;
+}
+
+@keyframes pp-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12%);
+  }
+}
+.pp-bounce {
+  animation: pp-bounce 0.8s ease-in-out infinite;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.3));
+}
+
+@keyframes pp-result {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -60%) scale(1);
+    opacity: 0;
+  }
+}
+.pp-result {
+  animation: pp-result 1.5s ease-out forwards;
+}
+
+/* A hint across the top: pops in, stays about three seconds, fades (see TopCenter.jsx). */
+@keyframes pp-hint {
+  0% {
+    transform: translateY(calc(var(--px) * -14)) scale(0.85);
+    opacity: 0;
+  }
+  8% {
+    transform: translateY(0) scale(1.06);
+    opacity: 1;
+  }
+  14% {
+    transform: scale(1);
+  }
+  85% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(calc(var(--px) * -10)) scale(0.96);
+    opacity: 0;
+  }
+}
+.pp-hint {
+  animation: pp-hint 3.4s ease-out forwards;
+}
+
+/* Hatch reveal, see HatchOverlay.jsx. */
+@keyframes pp-egg-shake {
+  0% { transform: rotate(0) scale(1); }
+  15% { transform: rotate(-6deg); }
+  30% { transform: rotate(6deg); }
+  45% { transform: rotate(-10deg); }
+  60% { transform: rotate(10deg); }
+  72% { transform: rotate(-14deg) scale(1.04); }
+  84% { transform: rotate(14deg) scale(1.08); }
+  95% { transform: rotate(0) scale(1.15); opacity: 1; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+.pp-egg {
+  animation: pp-egg-shake 1.2s ease-in both;
+}
+@keyframes pp-flash {
+  from { transform: scale(0.2); opacity: 1; }
+  to { transform: scale(1.5); opacity: 0; }
+}
+.pp-flash {
+  opacity: 0;
+  animation: pp-flash 0.45s ease-out both;
+}
+@keyframes pp-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.pp-pet {
+  animation: pp-pop 0.45s ease-out both;
+}
+@keyframes pp-rays {
+  0% { transform: rotate(0deg) scale(0.4); opacity: 0; }
+  10% { opacity: 1; transform: rotate(18deg) scale(1.1); }
+  100% { transform: rotate(180deg) scale(1.1); opacity: 0.9; }
+}
+.pp-rays {
+  animation: pp-rays 3s linear both;
+  mask-image: radial-gradient(circle, #000 25%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle, #000 25%, transparent 70%);
+}
+
+/* Holding E on the ROLL ZONE: the ring round the key fills, then you curl up and roll. */
+@keyframes pp-hold {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.pp-hold {
+  animation: pp-hold var(--hold) linear forwards;
+}
+
+/* The Coins counter jumps as each coin flies into it. */
+@keyframes pp-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.pp-bump {
+  animation: pp-bump 0.25s ease-out;
+}
+
+/* The EAT button breathes, so it reads as the thing to press. */
+@keyframes pp-pulse {
+  0%,
+  100% {
+    filter: brightness(1) drop-shadow(0 0 0 rgba(255, 210, 60, 0));
+  }
+  50% {
+    filter: brightness(1.12) drop-shadow(0 0 calc(var(--px) * 22) rgba(255, 210, 60, 0.85));
+  }
+}
+.pp-pulse {
+  animation: pp-pulse 1.1s ease-in-out infinite;
+}
+
+/* Rainbow rays turning behind the x2 passes. */
+@keyframes pp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pp-spin {
+  animation: pp-spin 9s linear infinite;
+}
+
+/* Down the track: the Fat readout shivers as the last of it burns off. */
+@keyframes pp-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(calc(var(--px) * -4));
+  }
+  75% {
+    transform: translateX(calc(var(--px) * 4));
+  }
+}
+.pp-shake {
+  animation: pp-shake 0.12s linear infinite;
+}
+
+/* A big banner on the track (TAPE SMASHED!, OUT OF FAT!): pops in, holds, fades. */
+@keyframes pp-banner {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3) rotate(-6deg);
+    opacity: 0;
+  }
+  12% {
+    transform: translate(-50%, -50%) scale(1.15) rotate(2deg);
+    opacity: 1;
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1) rotate(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -62%) scale(1);
+    opacity: 0;
+  }
+}
+.pp-banner {
+  animation: pp-banner 2.6s ease-out forwards;
+}
+
+/* The death card: pops in like a banner, then stays until Respawn is pressed. */
+@keyframes pp-death {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3) rotate(-6deg);
+    opacity: 0;
+  }
+  55% {
+    transform: translate(-50%, -50%) scale(1.15) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+.pp-death {
+  animation: pp-death 0.55s ease-out both;
+}
+
+/* Things only shown where the screen is tall enough for them (not landscape phones). */
+@media (max-height: 560px) {
+  .pp-tall-only {
+    display: none !important;
+  }
+}
+
+/* Speed lines while rolling flat out (PushHud's SpeedLines fades them by speed): thin
+   white streaks round the edges, flickering round a little so they read as motion. */
+@keyframes pp-speedlines {
+  0% {
+    transform: rotate(0deg) scale(1.15);
+  }
+  50% {
+    transform: rotate(2.5deg) scale(1.2);
+  }
+  100% {
+    transform: rotate(0deg) scale(1.15);
+  }
+}
+.pp-speedlines {
+  background: repeating-conic-gradient(from 0deg at 50% 52%, rgba(255, 255, 255, 0) 0deg 5deg, rgba(255, 255, 255, 0.55) 5.4deg 5.9deg, rgba(255, 255, 255, 0) 6.3deg 11deg);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 52%, transparent 38%, black 78%);
+  mask-image: radial-gradient(ellipse at 50% 52%, transparent 38%, black 78%);
+  animation: pp-speedlines 0.18s linear infinite;
+  transition: opacity 0.2s;
+  will-change: transform, opacity;
+}
