@@ -8,7 +8,7 @@ import { mulberry32 } from '@shared/rng'
 import { getQuality, useQuality } from '../../store/quality'
 import { disposeBlocks } from '../blocks'
 import { LabelBatch } from '../labels/LabelBatch'
-import { sharedMaterials } from '../materials'
+import { sharedMaterials, toyCheer } from '../materials'
 import { FOG, SKY } from '../sceneStyle'
 import { skyUniforms } from '../skyState'
 import { STAGES, stageAt, stageStart, TRACK_LENGTH, WALLS, WORLD } from './course'
@@ -20,13 +20,18 @@ import { buildChunk, CHUNK, chunkCount, SUMMIT_LENGTH } from './track'
 import Walls from './Walls'
 import { WALL_HEIGHT } from './wallLook'
 
-/** Chunks kept behind the focus point, and how many may be built per builder pass. */
+/** Chunks kept behind the focus point, and how many may be built per builder pass (one: an arena chunk, crowd and all, is a big build for a phone; they're streamed well ahead anyway). */
 const BEHIND = 50
-const MAX_BUILDS_PER_PASS = 2
+const MAX_BUILDS_PER_PASS = 1
 /** How often the chunk builder runs (between frames, not inside them). */
 const BUILD_INTERVAL_MS = 40
 /** Chunks never thrown away: the stretch visible from the lobby. */
 const PINNED_CHUNKS = 3
+/**
+ * From the lobby, the arena is streamed only this far (240 m): past that it's fogged and
+ * mostly behind its own stands, and its crowds would cost triangles for nothing.
+ */
+const LOBBY_CHUNKS = 6
 const CACHE_LIMIT = 12
 
 const _p = new Vector3()
@@ -135,6 +140,16 @@ export default function Push() {
       const z = zAt(wall.meter - 0.6)
       batch.add(`wall-${wall.stage}`, [0, surfaceY(z, 0) + WALL_HEIGHT + 1.1, z], { lines, pxPerUnit: 60 }, { fade: 220 })
     }
+    // Over the arch at the start of every stage after the first: its number and name.
+    for (let i = 1; i < STAGES.length; i += 1) {
+      const z = zAt(stageStart(i) - 1.2)
+      batch.add(
+        `stage-${i}`,
+        [0, surfaceY(z, 0) + 10.4, z],
+        { lines: [{ text: `STAGE ${i + 1}`, size: 40, fill: '#ffffff' }, { text: STAGES[i].name.toUpperCase(), size: 64, gradient: STAGE_THEMES[STAGES[i].id].name }], pxPerUnit: 48 },
+        { fade: 200 },
+      )
+    }
     const top = zAt(TRACK_LENGTH + SUMMIT_LENGTH * 0.62)
     batch.add(
       'the-top',
@@ -190,8 +205,10 @@ export default function Push() {
     }
   }, [assets, scene])
 
-  useFrame(() => {
+  useFrame((_state, rawDelta) => {
     const settings = getQuality()
+    // The crowd calming down after a smash.
+    if (toyCheer.value > 0) toyCheer.value = Math.max(0, toyCheer.value - Math.min(rawDelta, 0.05) * 0.7)
     const focus = push.active ? Math.max(0, push.meter) : 0
 
     // --- Track chunks -------------------------------------------------------------
@@ -199,7 +216,7 @@ export default function Push() {
     // the frame loop.
     const want = trackWindow
     want.first = Math.max(0, Math.floor((focus - BEHIND) / CHUNK))
-    want.last = Math.min(chunkCount() - 1, Math.floor((focus + settings.viewDistance) / CHUNK))
+    want.last = Math.min(chunkCount() - 1, Math.floor((focus + settings.viewDistance) / CHUNK), push.active ? Infinity : LOBBY_CHUNKS - 1)
     want.density = settings.decorDensity
     want.shadows = settings.shadows === 'realtime'
     chunkCache.forEach(showIfWanted)

@@ -1,5 +1,5 @@
 ---
-gameId: get-fat-to-break-tape
+gameId: 1-fat-to-smash-walls
 clientDir: client
 buildCommand: npm run build
 distDir: client/dist

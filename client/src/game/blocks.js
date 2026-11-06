@@ -37,7 +37,7 @@ export function toColor(value) {
   return c
 }
 
-const FIELDS = 13
+const FIELDS = 15
 
 /**
  * A bag of axis-aligned (optionally Y-rotated) boxes.
@@ -48,6 +48,20 @@ const FIELDS = 13
 export class BlockSet {
   constructor() {
     this.data = []
+    /** The bob/hop every box added from now on gets (see setAnim). */
+    this.animPhase = 0
+    this.animAmount = 0
+  }
+
+  /**
+   * Boxes added from now on bob (or, with `phase` >= 100, hop) by `amount` - in the box's
+   * own units, so divide a height in metres by the box's height - in the toy shader:
+   * no CPU work per frame. setAnim() (no arguments) makes them still again.
+   */
+  setAnim(phase = 0, amount = 0) {
+    this.animPhase = phase
+    this.animAmount = amount
+    return this
   }
 
   get count() {
@@ -57,7 +71,7 @@ export class BlockSet {
   /** Rotations are radians, applied in X, Y, Z order; nearly everything uses Y only. */
   add(x, y, z, sx, sy, sz, color, style = STYLE.STUDS, rotY = 0, rotX = 0, rotZ = 0) {
     const c = toColor(color)
-    this.data.push(x, y, z, sx, sy, sz, rotX, rotY, rotZ, c.r, c.g, c.b, style)
+    this.data.push(x, y, z, sx, sy, sz, rotX, rotY, rotZ, c.r, c.g, c.b, style, this.animPhase, this.animAmount)
     return this
   }
 
@@ -87,6 +101,10 @@ export class BlockSet {
 
     const styles = new Float32Array(Math.max(count, 1))
     geometry.setAttribute('aStyle', new InstancedBufferAttribute(styles, 1))
+    // Only sets with something animated carry the bob/hop attribute (still is the default).
+    let anims = null
+    for (let i = 0; i < count && !anims; i += 1) if (this.data[i * FIELDS + 14] !== 0) anims = new Float32Array(count * 2)
+    if (anims) geometry.setAttribute('aAnim', new InstancedBufferAttribute(anims, 2))
 
     const mesh = new InstancedMesh(geometry, material, Math.max(count, 1))
     mesh.count = count
@@ -107,6 +125,10 @@ export class BlockSet {
       mesh.setMatrixAt(i, matrix)
       mesh.setColorAt(i, color.setRGB(d[o + 9], d[o + 10], d[o + 11]))
       styles[i] = d[o + 12]
+      if (anims) {
+        anims[i * 2] = d[o + 13]
+        anims[i * 2 + 1] = d[o + 14]
+      }
     }
 
     mesh.instanceMatrix.needsUpdate = true

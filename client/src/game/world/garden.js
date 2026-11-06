@@ -12,8 +12,8 @@ import { flowerBed } from './structures'
  * and the food shop (nothing tall there: they'd hide the Food Courts and the shop from
  * spawn), in a row along the strips either side of the walk down to the egg plaza and
  * along the lawn in front of the leaderboards, a flower bed between each pair of egg
- * stands, a tree on each lawn further up the walkway, and trees on the lawns in the far
- * corners. None of it is solid, and none of it stands on a path. In
+ * stands, and trees on the lawns in the far corners. (The two lawns further up the
+ * walkway are demolition yards: demoWalls.js.) None of it is solid, and none of it stands on a path. In
  * `palette`'s colours (palette.js).
  */
 
@@ -46,7 +46,8 @@ function along(lawn, count, margin = 1.5) {
 
 export function buildGarden(blocks, props, { detail = true, palette } = {}) {
   const round = { small: new CylinderGeometry(1, 1, 1, 16) }
-  const [avenueW, avenueE, stripW, stripE, boards, corner, falls, upW, upE, shop, behindHut, behindStatue] = LAWNS
+  // (The two lawns further up the walkway, 7 and 8, are the demolition yards: demoWalls.js.)
+  const [avenueW, avenueE, stripW, stripE, boards, corner, falls, , , shop, behindHut, behindStatue] = LAWNS
 
   // Flower clumps down the lawns either side of the avenue, framing the way up to the square.
   for (const [k, lawn] of [avenueW, avenueE].entries()) {
@@ -60,13 +61,6 @@ export function buildGarden(blocks, props, { detail = true, palette } = {}) {
   along(stripE, 2).forEach(([x, z], k) => flowerClump(blocks, x, z, k + 1, palette, detail))
   along(boards, 7).forEach(([x, z], k) => flowerClump(blocks, x, z, k + 2, palette, detail))
   along(shop, 3).forEach(([x, z], k) => flowerClump(blocks, x, z, k + 4, palette, detail))
-  // A tree on each lawn further up the walkway, with a clump either side of it.
-  for (const [k, lawn] of [upW, upE].entries()) {
-    const [[x0, z], [x, zm], [x1]] = along(lawn, 3)
-    roundTree(blocks, x, zm, 0.95, k + 1, palette)
-    flowerClump(blocks, x0, z, k + 3, palette, detail)
-    flowerClump(blocks, x1, z, k + 5, palette, detail)
-  }
 
   // A flower bed between each pair of egg stands, on the band they stand on.
   const row = [...EGG_STANDS].sort((a, b) => a.x - b.x)

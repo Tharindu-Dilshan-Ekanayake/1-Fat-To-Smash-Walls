@@ -1,10 +1,10 @@
-# Ships Belly Buster to Boxity: the dev branch to the dev (playtest) channel,
+# Ships the game (1-fat-to-smash-walls) to Boxity: the dev branch to the dev (playtest) channel,
 # main to production - on both Boxity platforms, prod always and stage too once the repo
 # has a stage token. The two deploys are separate jobs: a stage failure never blocks or
 # undoes prod. "Run workflow" deploys any branch to the one platform you pick.
 #
 #   server   -> Docker image in this repo's GitHub Container Registry, rolled out by Legion
-#   frontend -> the built client, served at https://get-fat-to-break-tape.play.bloxity.io
+#   frontend -> the built client, served at https://1-fat-to-smash-walls.play.bloxity.io
 #               (prod; .dev.play... for dev, and the same under stage.bloxity.io on stage)
 #
 # One build for both platforms: no environment, API URL or domain goes into the client
@@ -14,7 +14,7 @@
 #   LEGION_DEPLOY_TOKEN        from hosting.bloxity.io (production)
 #   LEGION_DEPLOY_TOKEN_STAGE  from hosting.stage.bloxity.io (optional: ships to stage too)
 # After the first run, make the ghcr.io package public so Legion can pull it (repo ->
-# Packages -> get-fat-to-break-tape-server -> Package settings -> Change visibility).
+# Packages -> 1-fat-to-smash-walls-server -> Package settings -> Change visibility).
 
 name: Deploy to Boxity
 
@@ -30,7 +30,7 @@ on:
         default: staging
 
 env:
-  GAME_ID: get-fat-to-break-tape
+  GAME_ID: 1-fat-to-smash-walls
   # Players per room (the Colyseus room's maxClients), sent as Legion's seatCap: when a
   # pod fills to it, the matchmaker starts another.
   ROOM_SIZE: 8

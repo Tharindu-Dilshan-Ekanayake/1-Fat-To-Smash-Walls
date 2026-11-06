@@ -17,9 +17,10 @@ import { lobbyPalette } from './palette'
 import { buildPortalFrame } from './portalFrame'
 import { buildPushZone } from './pushZone'
 import { createPaintedSigns } from './signs'
+import CityLife from './CityLife'
+import { buildDemoYards } from './demoWalls'
+import { buildSkyline } from './skyline'
 import { buildFoodHut, buildStands, buildStatue, buildTownSquare } from './structures'
-import { buildTerrain } from './terrain'
-import { buildWaterfall } from './waterfall'
 
 /** Merges `extra` into the props mesh's geometry (one mesh, one draw call), freeing both old ones. */
 function addToProps(mesh, extra) {
@@ -32,20 +33,22 @@ function addToProps(mesh, extra) {
 }
 
 /**
- * The static lobby, "Snack Town": ground plane, every box (mountains, trees, the Food
- * Courts' restaurants, the food shop's hut, the champion's square, stands, the statue,
- * lawns' kerbs, the runway's chevrons) in one InstancedMesh, and every non-box prop
+ * The lobby, SMASH CITY: ground plane, every box (the skyline, the Food Courts'
+ * restaurants, the food shop's hut, the champion's square, stands, the statue, lawns'
+ * kerbs, the SMASH LANE's lights and kerbs, the demolition yards' gantries, the SMASH
+ * ZONE's gate) in one InstancedMesh, and every non-box prop
  * (round plinths and flower beds, the egg stands' wings, the statue's body, the giant
  * foods on the roofs and the hut's counter...) merged into one mesh. Three draw calls
- * for the whole environment.
+ * for the whole environment - and one more for what moves: the cranes, the demo walls
+ * and their wrecking balls (CityLife).
  *
  * The decoration - the giant foods on the roofs and the hut, the champion's body, the
  * painted signs - is left until the game's playable (useAfterPlayable) and merged into
  * the props mesh then: it was most of the lobby's build time, and nobody needs it to
  * start playing.
  *
- * Built once per world: World 1 is the bright day town, World 2 the same town by night
- * as a neon diner in space (palette.js). Stepping through the portal changes the world
+ * Built once per world: World 1 is the city at golden hour, World 2 the same city by
+ * night out in space (palette.js). Stepping through the portal changes the world
  * behind a fade to black, and the lobby is rebuilt in the other palette then (the old
  * one disposed). Quality only decides tree density and detail at build time, and
  * whether the result casts/receives realtime shadows.
@@ -92,7 +95,7 @@ export function World() {
     const { decorDensity, maxTexture } = useQuality.getState().settings
     const palette = lobbyPalette(world)
     const set = new BlockSet()
-    buildTerrain(set, { treeDensity: decorDensity, palette })
+    buildSkyline(set, { density: decorDensity, palette })
     buildLawnCurbs(set, palette)
     buildRunway(set, palette)
     buildNeonTrims(set, palette)
@@ -110,7 +113,7 @@ export function World() {
     buildStands(set)
     buildStatue(set, propBuilder, { palette, decor })
     buildPortalFrame(set)
-    buildWaterfall(set, palette)
+    buildDemoYards(set, palette)
     buildEggStands(set, propBuilder)
 
     const map = createGroundMap(maxTexture, palette)
@@ -153,6 +156,7 @@ export function World() {
       <mesh geometry={ground.geometry} material={ground.material} receiveShadow={shadows} />
       <primitive object={blocks} castShadow={shadows} receiveShadow={shadows} />
       <primitive object={props} castShadow={shadows} receiveShadow={shadows} />
+      <CityLife world={world} />
       {signs.map((sign) => (
         <mesh key={sign.texture.uuid} geometry={sign.geometry} material={sign.material} position={sign.position} rotation={sign.rotation} renderOrder={1} />
       ))}

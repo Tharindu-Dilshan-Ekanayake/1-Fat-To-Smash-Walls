@@ -1,7 +1,7 @@
 import { CylinderGeometry, Euler, Matrix4, Quaternion, SphereGeometry, Vector3 } from 'three'
 
 import { AURAS } from '@shared/balance'
-import { AURA_STAND, FOOD_HUT, POTION_STAND, STATUE, WALKWAY } from '@shared/world'
+import { AURA_STAND, FOOD_HUT, POTION_STAND, STATUE } from '@shared/world'
 
 import { flexingBodybuilder } from '../fatBody'
 import { addFoodToProps, foodGeometry, foodSize } from '../food'
@@ -303,8 +303,6 @@ export const STATUE_PLATE = (() => {
   const [x, z] = turned(STATUE.x, STATUE.z, STATUE_YAW)(0, STATUE.radius + 0.17)
   return { x, y: (PLINTH.step + PLINTH.drum) / 2, z, width: 3.0, height: 0.62, yaw: STATUE_YAW }
 })()
-/** The giant foods on pedestals flanking the walkway, a way up it: how far either side of its middle, and where. */
-const GIANT_FOODS = { x: WALKWAY.maxX + 2.9, z: -19 }
 
 /** A park bench facing `yaw`: wooden slats on dark legs, a backrest behind. */
 function parkBench(blocks, x, z, yaw, color, legs = LAMP_POST) {
@@ -364,24 +362,14 @@ function later(decor, props, fn) {
   else fn(props)
 }
 
-/** A giant food on a round pedestal, facing `yaw`: decoration on the lawns. */
-function giantFood(blocks, props, round, x, z, id, yaw, color, decor = null) {
-  props.add(round.small, { position: [x, 0.5, z], scale: [1.3, 1.0, 1.3], color: '#f4f7fb' })
-  props.add(round.small, { position: [x, 1.08, z], scale: [1.45, 0.16, 1.45], color, style: STYLE.GLOW })
-  const scale = 8
-  const drop = -foodGeometry(id).boundingBox.min.y * foodSize(id) * scale
-  later(decor, props, (p) => addFoodToProps(p, id, { position: [x, 1.16 + drop, z], yaw, lean: 0.1, scale, anim: [x, 0.35] }))
-}
-
 /**
  * The champion's square, beside spawn on the right at the end of the cross street: a
  * lamp at each diagonal, two benches behind the statue facing it, a ring of flowers
- * round the plinth (open at its front, where the name plate is). And the giant donut
- * and cupcake on pedestals either side of the walkway, a way up it, turned to it.
- * Nothing here stands on the walkway, and nothing is solid but the statue's plinth.
+ * round the plinth (open at its front, where the name plate is). Nothing here stands on
+ * the walkway, and nothing is solid but the statue's plinth.
  * In `palette`'s colours (palette.js).
  */
-export function buildTownSquare(blocks, props, { detail = true, palette, decor = null } = {}) {
+export function buildTownSquare(blocks, props, { detail = true, palette } = {}) {
   const { x, z } = STATUE
   const round = roundParts()
   const front = turned(x, z, STATUE_YAW)
@@ -407,9 +395,6 @@ export function buildTownSquare(blocks, props, { detail = true, palette, decor =
       blocks.add(px, 0.42, pz, 0.26, 0.26, 0.26, palette.flowers[(k + i) % palette.flowers.length], palette.flowerStyle, b, 0.4)
     }
   }
-  // The giant foods flanking the walkway, turned to it and a little towards spawn.
-  giantFood(blocks, props, round, -GIANT_FOODS.x, GIANT_FOODS.z, 'donut', Math.PI / 2 - 0.35, '#ff7eb6', decor)
-  giantFood(blocks, props, round, GIANT_FOODS.x, GIANT_FOODS.z, 'cupcake', -Math.PI / 2 + 0.35, '#ff6fa8', decor)
   round.dispose()
 }
 

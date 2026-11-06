@@ -10,6 +10,8 @@ const WOOD = '#e8913a'
 const WOOD_DARK = '#9a5a26'
 const WOOD_SEAM = '#c8702a'
 const TRIM = '#ffd21f'
+/** How high the SMASH ZONE gate's beam sits. */
+const GATE_H = 5.4
 
 /**
  * The wooden sign beside the ROLL ZONE: its board's middle, the board's size, and how far
@@ -25,12 +27,12 @@ export function onPushSign(u, y, w) {
 }
 
 /**
- * The start of the tape track: the first stage's floor of world `world`'s track running
- * out onto the plaza as the ROLL ZONE (painted with ROLL! - see signs.js; walking onto it
- * with Fat on you curls you up and starts a roll), white chevrons pointing down the
- * track, and an orange wooden
- * "Step In to ROLL!" sign beside it (its words are painted on too). Boxes in the world's
- * block set: no extra draw calls.
+ * The start of the arena track: the first stage's floor of world `world`'s track running
+ * out onto the plaza as the SMASH ZONE (painted with SMASH! - see signs.js; holding E on
+ * it with Fat on you starts a run), white chevrons pointing down the track, the gate
+ * over it - hazard-striped pillars and a beam of racing marquee lights - and an orange
+ * wooden "Step In to SMASH!" sign beside it (its words are painted on too). Boxes in the
+ * world's block set: no extra draw calls.
  *
  * No two faces here share a plane: every layer stands a clear step proud of what it
  * sits on (flush faces flicker, worst on phones' coarser depth buffers).
@@ -51,6 +53,20 @@ export function buildPushZone(blocks, { world = 0 } = {}) {
     for (const side of [-1, 1]) {
       blocks.add(x + side * 0.38, 0.12, cz, 1.15, 0.04, 0.4, '#ffffff', STYLE.GLOW, -side * 0.75)
     }
+  }
+
+  // The gate, at the zone's plaza end: a pillar either side of the walkway, a beam over it.
+  const gz = maxZ - 0.4
+  const gx = WALKWAY.maxX + 0.75
+  for (const side of [-1, 1]) {
+    blocks.addOn(side * gx, 0, gz, 1.3, 0.4, 1.3, '#2c313c', STYLE.SMOOTH)
+    blocks.addOn(side * gx, 0.4, gz, 0.95, GATE_H - 0.4, 0.95, '#ffcc1a', STYLE.HAZARD)
+    blocks.addOn(side * gx, GATE_H + 1.1, gz, 1.25, 0.3, 1.25, '#2c313c', STYLE.SMOOTH)
+    blocks.add(side * gx, GATE_H + 1.75, gz, 0.7, 0.7, 0.7, '#ff8a1e', STYLE.GLOW, 0.785)
+  }
+  blocks.addOn(0, GATE_H, gz, gx * 2 + 1.1, 1.1, 0.8, '#2c313c', STYLE.SMOOTH)
+  for (const face of [-1, 1]) {
+    for (const row of [0.3, 0.8]) blocks.add(0, GATE_H + row, gz + face * 0.43, gx * 2 + 0.6, 0.22, 0.06, '#ffd23f', STYLE.CHASE)
   }
 
   // The sign: a framed board of orange planks, gold along its top and bolted at the

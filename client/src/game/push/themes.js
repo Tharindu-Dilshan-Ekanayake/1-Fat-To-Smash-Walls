@@ -226,5 +226,5 @@ export const STAGE_THEMES = {
 /** Each world's lobby sky (and stars), by world index; World 1's is the scene's own. */
 export const WORLD_SKIES = [null, { sky: ['#1a1050', '#8a6ad8'], stars: true }]
 
-/** Every SAFEZONE, whatever the stage: light blue studs, floor and cliffs alike. */
-export const SAFE_THEME = { floor: '#a6dbff', floorStyle: STYLE.STUDS, wall: '#7ab9ec', cap: '#d8efff', gate: '#5cc8ff' }
+/** Every checkpoint, whatever the stage: a checkered floor between light blue stands. */
+export const SAFE_THEME = { floor: '#f4f7fb', floorStyle: STYLE.CHECKER, wall: '#7ab9ec', cap: '#d8efff', gate: '#5cc8ff' }

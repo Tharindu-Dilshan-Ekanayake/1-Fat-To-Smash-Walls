@@ -548,6 +548,32 @@ export const sfx = {
     tone(170, { type: 'sine', at: 0.2, duration: 0.26, volume: 0.16, slideTo: 380 })
     ;[523, 659, 784, 1047].forEach((f, i) => tone(f, { type: 'triangle', at: 0.42 + i * 0.05, duration: 0.3, volume: 0.07, echo: true }))
   },
+  /**
+   * A demo wall in the lobby bursting, `level` 0-1 how near you are: a softer boom and
+   * crumble than your own smashes, fading out with distance.
+   */
+  demoSmash(level = 1) {
+    if (!ready('demoSmash', 500)) return
+    const v = 0.15 + 0.45 * Math.min(1, Math.max(0, level))
+    tone(90, { duration: 0.35, volume: 0.22 * v, slideTo: 35, attack: 0.004 })
+    noise({ duration: 0.45, volume: 0.3 * v, from: 2800, to: 240, q: 0.6 })
+    for (let i = 0; i < 5; i += 1) tone(260 + Math.random() * 380, { type: 'triangle', at: 0.15 + Math.random() * 0.45, duration: 0.05, volume: 0.03 * v, slideTo: 140 })
+  },
+  /**
+   * The crowd in the stands going wild as you smash a wall, `level` 0-1 how wild: a roar
+   * swelling and fading - three bands of noise - and a few whistles.
+   */
+  crowdCheer(level = 1) {
+    if (!ready('crowdCheer', 400)) return
+    const v = Math.min(1, Math.max(0.3, level))
+    noise({ duration: 1.6, volume: 0.09 * v, from: 700, to: 1100, q: 0.5 })
+    noise({ at: 0.05, duration: 1.4, volume: 0.07 * v, from: 1500, to: 900, q: 0.7 })
+    noise({ at: 0.1, duration: 1.2, volume: 0.05 * v, from: 350, to: 500, q: 0.8 })
+    for (let i = 0; i < 3; i += 1) {
+      const f = 1700 + Math.random() * 700
+      tone(f, { at: 0.1 + Math.random() * 0.6, duration: 0.35, volume: 0.025 * v, slideTo: f * 1.35, attack: 0.05 })
+    }
+  },
   /** Thrown back by a wall too strong: a big rubbery BOING. */
   bounce() {
     if (!ready('bounce', 300)) return

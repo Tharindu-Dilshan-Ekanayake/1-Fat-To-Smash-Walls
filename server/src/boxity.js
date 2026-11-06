@@ -15,7 +15,7 @@ export const boxity = {
   staticUrl: (process.env.BLOXITY_STATIC_URL || 'https://static.bloxity.io').replace(/\/$/, ''),
   gameId: process.env.BLOXITY_GAME_ID || '',
   /** The game's slug on Boxity: its hosting id, unless told otherwise. */
-  gameSlug: process.env.BLOXITY_GAME_SLUG || process.env.BLOXITY_GAME_ID || 'get-fat-to-break-tape',
+  gameSlug: process.env.BLOXITY_GAME_SLUG || process.env.BLOXITY_GAME_ID || '1-fat-to-smash-walls',
   reportToken: process.env.BLOXITY_REPORT_TOKEN || '',
 }
 

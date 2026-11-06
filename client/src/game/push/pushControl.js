@@ -13,6 +13,7 @@ import { fadeThrough } from '../../ui/fade'
 import { iconUrl } from '../../ui/icons'
 import { burst } from '../fx/fxQueue'
 import { spawnPopup } from '../fx/popups'
+import { toyCheer } from '../materials'
 import { runtime } from '../runtime'
 import { STAGES, stageAt, TRACK_LENGTH, WALLS } from './course'
 import { feetPoint } from './path'
@@ -355,6 +356,11 @@ function smashWalls(now) {
     spawnPopup(`+${formatNumber(coins)}`, _at.setY(_at.y + push.bellyY + 0.8), { iconUrl: COIN, scale: 1.6, follow: push.position })
     sfx.wallSmash(push.radius)
     sfx.coins()
+    // The crowd in the stands goes wild - a roar, everyone jumping - and confetti cannons
+    // fire from the barriers either side.
+    toyCheer.value = 1
+    sfx.crowdCheer(Math.min(1, 0.55 + push.wallsBroken.length * 0.08))
+    for (const side of [-1, 1]) burst({ x: side * (TRACK_HALF_WIDTH + 0.3), y: _at.y + 1, z: _at.z + 2, count: 20, palette: 'confetti', speed: 9 })
     showBanner({ kind: 'wall', stage: wall.stage, coins, streak: push.wallsBroken.length })
   }
 }

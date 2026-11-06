@@ -23,12 +23,14 @@ import {
   STATUE,
   TRACK_START_Z,
   WALKWAY,
-  WATERFALL,
   zoneDeckRect,
 } from '@shared/world'
 
 import { STYLE } from '../materials'
 import { DIRT_PATCHES, LAWNS } from './lawns'
+
+/** The demolition yards by the lane (demoWalls.js): gravel, not grass. */
+const YARDS = [LAWNS[7], LAWNS[8]]
 import { SQUARE_RADIUS } from './structures'
 
 /**
@@ -37,8 +39,8 @@ import { SQUARE_RADIUS } from './structures'
  * rects and discs on the texel grid, so their edges always fall on the stud-tile seams -
  * and the whole floor is a single draw call regardless of how many painted regions it has.
  *
- * The layout, as you see it from spawn (facing north): straight ahead the walkway, a
- * wide red-carpet runway with nothing on it, all the way to the ROLL ZONE; a cross street
+ * The layout, as you see it from spawn (facing north): straight ahead the walkway, the
+ * SMASH LANE - dark asphalt with nothing on it - all the way to the SMASH ZONE; a cross street
  * through spawn, west to the Food Courts' street and east to the champion's square; and
  * behind you a walk down to the egg plaza - a promenade along the front of the egg
  * stands, the leaderboards behind them. Further up the walkway two more streets cross
@@ -148,9 +150,10 @@ export function createGroundMap(maxTexture, palette) {
 
   rect(MAP, p.plaza)
 
-  // The kerbed lawns and their dirt patches.
-  for (const lawn of LAWNS) bordered(lawn, p.lawn, p.curbEdge)
-  for (const patch of DIRT_PATCHES) rect(patch, p.dirt)
+  // The kerbed lawns and their dirt patches - and the two demolition yards by the lane,
+  // packed gravel.
+  for (const lawn of LAWNS) bordered(lawn, YARDS.includes(lawn) ? p.site : p.lawn, p.curbEdge)
+  for (const patch of DIRT_PATCHES) if (!YARDS.some((y) => patch.minX >= y.minX && patch.maxX <= y.maxX && patch.minZ >= y.minZ && patch.maxZ <= y.maxZ)) rect(patch, p.dirt)
 
   // The Food Courts' warm street, along their fronts and under them.
   bordered(COURT_STREET, p.street, p.streetEdge)
@@ -195,9 +198,6 @@ export function createGroundMap(maxTexture, palette) {
   paved(SPAWN.x, SPAWN.z, SPAWN_RADIUS, p.path, p.pathEdge)
   band(SPAWN.x, SPAWN.z, 2.4, 3.3, p.gold)
 
-  // Waterfall pool at the foot of the north cliff.
-  rect({ minX: WATERFALL.x - 6, maxX: WATERFALL.x + 6, minZ: WATERFALL.z, maxZ: WATERFALL.z + 5 }, p.water)
-
   const texture = new CanvasTexture(canvas)
   texture.colorSpace = SRGBColorSpace
   texture.magFilter = NearestFilter
@@ -209,19 +209,29 @@ export function createGroundMap(maxTexture, palette) {
 }
 
 /**
- * The runway's chevrons: big flat arrows up the middle of the walkway pointing to the
- * ROLL ZONE, flat on the ground (a few hundredths up: paint, not props - nothing stands
- * on the walkway). Boxes in the world's block set. In World 2 they glow.
+ * The SMASH LANE's paint and kerbs: big flat arrows up its middle pointing to the SMASH
+ * ZONE - marquee bulbs, their lights racing up the lane (STYLE.CHASE) - and a low
+ * hazard-striped kerb down each side, broken where the streets cross. Flat on the
+ * ground, a few hundredths up (paint, not props - nothing stands on the walkway). Boxes
+ * in the world's block set.
  */
 export function buildRunway(blocks, palette) {
   const start = SPAWN.z - SPAWN_RADIUS - 2
   const end = PUSH_ZONE.maxZ + 3
+  const crossing = (z, margin) => [MIDWAY, NORTH].some((r) => z > r.minZ - margin && z < r.maxZ + margin)
   for (let z = start; z > end; z -= 5) {
-    // Not where the streets cross.
-    if ([MIDWAY, NORTH].some((r) => z > r.minZ - 1.5 && z < r.maxZ + 1.5)) continue
+    if (crossing(z, 1.5)) continue
     for (const side of [-1, 1]) {
       blocks.addOn(side * 0.95, 0, z, 2.6, 0.04, 0.7, palette.chevron, palette.chevronStyle, -side * 0.75)
     }
+  }
+  // The kerbs: in runs between the crossings.
+  const x = RUNWAY.maxX - 0.5
+  const stops = [SPAWN.z - SPAWN_RADIUS + 0.5, MIDWAY.maxZ, MIDWAY.minZ, NORTH.maxZ, NORTH.minZ, PUSH_ZONE.maxZ + 1]
+  for (let k = 0; k < stops.length; k += 2) {
+    const z0 = stops[k]
+    const z1 = stops[k + 1]
+    for (const side of [-1, 1]) blocks.addOn(side * x, 0, (z0 + z1) / 2, 0.7, 0.12, z0 - z1, '#ffcc1a', STYLE.HAZARD)
   }
 }
 

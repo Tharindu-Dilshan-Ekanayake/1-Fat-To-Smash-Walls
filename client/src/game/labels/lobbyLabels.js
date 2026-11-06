@@ -227,7 +227,7 @@ function placeLabels() {
     {
       // (The id is older than the SMASH ZONE; the ticker relabels it by this name.)
       id: START_LABEL_ID,
-      position: [0, 6.6, TRACK_START_Z + 0.5],
+      position: [0, 8.6, TRACK_START_Z + 0.5],
       spec: startLabelSpec(),
       // Room for the biggest first wall of any world.
       reserve: WORLDS.map((_, world) => startLabelSpec(world)).reduce((a, b) => (b.lines[1].text.length > a.lines[1].text.length ? b : a)),
