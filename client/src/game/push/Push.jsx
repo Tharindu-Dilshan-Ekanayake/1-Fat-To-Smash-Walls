@@ -8,24 +8,30 @@ import { mulberry32 } from '@shared/rng'
 import { getQuality, useQuality } from '../../store/quality'
 import { disposeBlocks } from '../blocks'
 import { LabelBatch } from '../labels/LabelBatch'
-import { sharedMaterials } from '../materials'
+import { sharedMaterials, toyCheer } from '../materials'
 import { FOG, SKY } from '../sceneStyle'
 import { skyUniforms } from '../skyState'
-import { STAGES, stageAt, stageStart, TAPES, TRACK_LENGTH, WORLD } from './course'
+import { STAGES, stageAt, stageStart, TRACK_LENGTH, WALLS, WORLD } from './course'
 import { surfaceY, zAt } from './path'
 import PushFX from './PushFX'
 import { push } from './pushControl'
 import { STAGE_THEMES, WORLD_SKIES } from './themes'
 import { buildChunk, CHUNK, chunkCount, SUMMIT_LENGTH } from './track'
-import Tapes from './Tapes'
+import Walls from './Walls'
+import { WALL_HEIGHT } from './wallLook'
 
-/** Chunks kept behind the focus point, and how many may be built per builder pass. */
+/** Chunks kept behind the focus point, and how many may be built per builder pass (one: an arena chunk, crowd and all, is a big build for a phone; they're streamed well ahead anyway). */
 const BEHIND = 50
-const MAX_BUILDS_PER_PASS = 2
+const MAX_BUILDS_PER_PASS = 1
 /** How often the chunk builder runs (between frames, not inside them). */
 const BUILD_INTERVAL_MS = 40
 /** Chunks never thrown away: the stretch visible from the lobby. */
 const PINNED_CHUNKS = 3
+/**
+ * From the lobby, the arena is streamed only this far (240 m): past that it's fogged and
+ * mostly behind its own stands, and its crowds would cost triangles for nothing.
+ */
+const LOBBY_CHUNKS = 6
 const CACHE_LIMIT = 12
 
 const _p = new Vector3()
@@ -51,9 +57,9 @@ const showIfWanted = (mesh, i) => {
 }
 
 /**
- * Lazily loaded: the tape track down the valley of the world you're in, its tapes and
- * signs, and the sky changing stage by stage while you roll (and the lobby's, world by
- * world). While nobody is rolling it still streams the first stretch, which is the track
+ * Lazily loaded: the track down the valley of the world you're in, its brick walls and
+ * signs, and the sky changing stage by stage while you run (and the lobby's, world by
+ * world). While nobody is running it still streams the first stretch, which is the track
  * you see dropping away from the lobby. Mounted afresh for each world (see GameScene).
  */
 export default function Push() {
@@ -99,7 +105,7 @@ export default function Push() {
   }, [])
 
   // This module loads after the lobby is on screen; compile its shaders in the
-  // background before showing it, so the first roll doesn't stall on them.
+  // background before showing it, so the first run doesn't stall on them.
   useEffect(() => {
     const root = rootRef.current
     // Skipped in dev, where StrictMode's remount disposes materials mid-compile (see
@@ -117,23 +123,32 @@ export default function Push() {
     }
   }, [gl, camera, scene])
 
-  // Over every tape, what it takes and what it pays: its number, the Fat you need to get
-  // there (from the start: every slope before it burns its share), and its Coins. And
-  // the finish. Their own small label batch.
+  // Over every wall, what it takes to smash and what it pays: the Fat you need, and its
+  // Coins. And the finish. Their own small label batch.
   useEffect(() => {
     const batch = new LabelBatch({ pageSize: Math.min(512, getQuality().maxTexture) })
     const gold = ['#fffaa8', '#ffd52a', '#ff9c00']
-    for (const tape of TAPES) {
-      const stage = STAGES[tape.stage]
-      const last = tape.stage === STAGES.length - 1
+    for (const wall of WALLS) {
+      const stage = STAGES[wall.stage]
+      const last = wall.stage === STAGES.length - 1
       // The Fat it takes, big, with a drumstick - and what it pays.
       const lines = [
-        { text: formatNumber(tape.need), size: 76, icon: 'fat', gradient: last ? gold : STAGE_THEMES[stage.id].name },
-        { text: `+${formatNumber(tape.coins)}`, size: 40, icon: 'coin', fill: '#ffffff' },
+        { text: formatNumber(wall.need), size: 76, icon: 'fat', gradient: last ? gold : STAGE_THEMES[stage.id].name },
+        { text: `+${formatNumber(wall.coins)}`, size: 40, icon: 'coin', fill: '#ffffff' },
       ]
-      // Just short of the tape, floating over the wall: in view as you roll down at it.
-      const z = zAt(tape.meter - 0.6)
-      batch.add(`tape-${tape.stage}`, [0, surfaceY(z, 0) + 4.6, z], { lines, pxPerUnit: 60 }, { fade: 220 })
+      // Just short of the wall, floating over it: in view as you run down at it.
+      const z = zAt(wall.meter - 0.6)
+      batch.add(`wall-${wall.stage}`, [0, surfaceY(z, 0) + WALL_HEIGHT + 1.1, z], { lines, pxPerUnit: 60 }, { fade: 220 })
+    }
+    // Over the arch at the start of every stage after the first: its number and name.
+    for (let i = 1; i < STAGES.length; i += 1) {
+      const z = zAt(stageStart(i) - 1.2)
+      batch.add(
+        `stage-${i}`,
+        [0, surfaceY(z, 0) + 10.4, z],
+        { lines: [{ text: `STAGE ${i + 1}`, size: 40, fill: '#ffffff' }, { text: STAGES[i].name.toUpperCase(), size: 64, gradient: STAGE_THEMES[STAGES[i].id].name }], pxPerUnit: 48 },
+        { fade: 200 },
+      )
     }
     const top = zAt(TRACK_LENGTH + SUMMIT_LENGTH * 0.62)
     batch.add(
@@ -190,8 +205,10 @@ export default function Push() {
     }
   }, [assets, scene])
 
-  useFrame(() => {
+  useFrame((_state, rawDelta) => {
     const settings = getQuality()
+    // The crowd calming down after a smash.
+    if (toyCheer.value > 0) toyCheer.value = Math.max(0, toyCheer.value - Math.min(rawDelta, 0.05) * 0.7)
     const focus = push.active ? Math.max(0, push.meter) : 0
 
     // --- Track chunks -------------------------------------------------------------
@@ -199,7 +216,7 @@ export default function Push() {
     // the frame loop.
     const want = trackWindow
     want.first = Math.max(0, Math.floor((focus - BEHIND) / CHUNK))
-    want.last = Math.min(chunkCount() - 1, Math.floor((focus + settings.viewDistance) / CHUNK))
+    want.last = Math.min(chunkCount() - 1, Math.floor((focus + settings.viewDistance) / CHUNK), push.active ? Infinity : LOBBY_CHUNKS - 1)
     want.density = settings.decorDensity
     want.shadows = settings.shadows === 'realtime'
     chunkCache.forEach(showIfWanted)
@@ -247,7 +264,7 @@ export default function Push() {
       <group ref={labelsRef} />
       <primitive ref={starsRef} object={assets.stars} />
       <PushFX />
-      <Tapes />
+      <Walls />
     </group>
   )
 }

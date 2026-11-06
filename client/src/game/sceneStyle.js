@@ -1,7 +1,8 @@
 /**
- * The scene's whole look in one place: a bright toy-brick world with a saturated blue
- * sky, a light-blue studded baseplate with lime lawns and orange dirt patches, grey
- * voxel mountains all round and terracotta cliffs either side of the boulder track.
+ * The scene's whole look in one place: SMASH CITY at golden hour - a toy-brick city
+ * under a deep blue sky melting into a peach-orange horizon, warm concrete paving and
+ * asphalt streets, brick and glass towers all round with their windows lighting up, and
+ * the arena track running out of it to the north.
  *
  * Colours are sRGB hex, exactly as you would pick them in an image editor.
  *
@@ -12,12 +13,12 @@
  */
 
 export const SKY = {
-  /** Straight up. */
-  top: '#2f8ff2',
-  /** At eye level. Fog uses the same colour so distant ground melts into the sky. */
-  horizon: '#a6d6fb',
+  /** Straight up: a deep evening blue. */
+  top: '#3f56d4',
+  /** At eye level: the sunset's glow. Fog uses the same colour so distant towers melt into it. */
+  horizon: '#ffb47e',
   /** Lower = the deep blue reaches further down towards the horizon. */
-  exponent: 0.35,
+  exponent: 0.5,
 }
 
 export const FOG = {
@@ -25,10 +26,10 @@ export const FOG = {
 }
 
 export const CLOUDS = {
-  /** Sunlit tops. */
-  top: '#ffffff',
-  /** Undersides, a cool blue-grey. */
-  bottom: '#d6e5f5',
+  /** Tops, catching the low sun. */
+  top: '#fff1e2',
+  /** Undersides, sunset pink. */
+  bottom: '#f3a0a6',
 }
 
 /** Every surface colour in the lobby. */
@@ -54,18 +55,19 @@ export const PALETTE = {
 
 export const LIGHTS = {
   /** Fill from above (sky) and below (bounce off the grass). */
-  hemiSky: '#ffffff',
-  hemiGround: '#b9cba6',
-  hemiIntensity: 2.1,
+  hemiSky: '#fff0e4',
+  hemiGround: '#b4a6b8',
+  hemiIntensity: 2.05,
 
-  sunColor: '#fff6e8',
-  sunIntensity: 1.65,
+  /** A low, golden evening sun. */
+  sunColor: '#ffd9ae',
+  sunIntensity: 1.75,
   /**
    * Direction *towards* the sun: high and a little to the left, behind the default
    * camera, so the side of the character you look at is lit and its shadow falls
    * beside it where you can see it, not hidden behind its back.
    */
-  sunDirection: [-0.35, 0.9, 0.25],
+  sunDirection: [-0.5, 0.7, 0.4],
   /** 1 = shadows get no sunlight at all; lower = lighter shadows. */
   shadowIntensity: 0.7,
   /** Blur radius of shadow edges, in shadow-map texels. */

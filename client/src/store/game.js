@@ -57,13 +57,13 @@ export const useGame = create((set) => ({
   /** Extra data for the open panel (e.g. which egg the hatch panel is for). */
   panelData: null,
 
-  /** True while you're rolling down the track (the frame-rate state is push in pushControl). */
+  /** True while you're running down the track (the frame-rate state is push in pushControl). */
   pushing: false,
   /** True while Boxity shows an ad break: the game stands still. */
   paused: false,
-  /** Down the track: 'roll'; null in the plaza. */
+  /** Down the track: 'run'; null in the plaza. */
   climb: null,
-  /** The big message of the moment down the track: { kind: 'tape' | 'blocked' | 'top', ..., id }. */
+  /** The big message of the moment down the track: { kind: 'wall' | 'blocked' | 'top', ..., id }. */
   pushBanner: null,
   /**
    * The Coins the counter shows while a roll's Coins fly home to it (it counts up as each

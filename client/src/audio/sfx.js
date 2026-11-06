@@ -128,11 +128,11 @@ export function onMutedChange(listener) {
   return () => muteListeners.delete(listener)
 }
 
-// --- The roll: the sound of you, curled into a ball, rolling down the hill --------------
+// --- The run: the sound of you charging down the track ----------------------------------
 
 let roll = null
 let rollSetAt = 0
-/** Deep brown noise (like far-off thunder) and gravel crackle, made the first time you roll. */
+/** Deep brown noise (like far-off thunder) and gravel crackle, made the first time you run. */
 let brownBuffer = null
 let gravelBuffer = null
 
@@ -176,12 +176,12 @@ function rollLayer(buffer, type, frequency, q) {
 }
 
 /**
- * A big round body rolling, in three layers: a deep rumble of its weight on the ground; a
- * soft thump each time it comes round (see rollThuds); and grit crunching under it,
- * crackling faster the faster it goes. And a low growl that swells as the last of your
- * Fat runs out. The music ducks under it until `rollStop`.
+ * A big body charging down the track, under its footsteps (the player's): a low rumble of
+ * its weight on the ground, grit crunching under its feet faster the faster it goes, wind
+ * rushing past flat out, and a low growl that swells straining against a wall too strong.
+ * The music ducks under it until `runStop`.
  */
-function rollStart() {
+function runStart() {
   if (!ctx || roll || ctx.state !== 'running') return
   rollBuffers()
   const rumble = rollLayer(brownBuffer, 'lowpass', 120, 0.9)
@@ -199,11 +199,11 @@ function rollStart() {
   growlGain.gain.value = 0.0001
   growl.connect(growlFilter).connect(growlGain).connect(master)
   growl.start()
-  roll = { rumble, gravel, wind, growl, growlGain, nextThud: ctx.currentTime }
+  roll = { rumble, gravel, wind, growl, growlGain }
   music?.duck(true)
 }
 
-/** You coming round onto the ground at `t`: a low, soft knock that drops in pitch, and a puff of grit. */
+/** A heavy knock at `t`: a low, soft thump that drops in pitch, and a puff of grit. */
 function thud(t, volume, pitch) {
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
@@ -228,29 +228,10 @@ function thud(t, volume, pitch) {
 }
 
 /**
- * Schedules the thumps a little ahead: about one a turn - quicker the faster you roll,
- * slower and deeper the bigger (fatter) you are - each a little uneven.
+ * `level` 0..1 from how fast you run; `strain` 0..1 how hard you're straining against a
+ * wall too strong. Positional, not an object: it's called every frame.
  */
-function rollThuds(level, size) {
-  const t = ctx.currentTime
-  if (level < 0.05) {
-    roll.nextThud = t + 0.08
-    return
-  }
-  const rate = (0.9 + level * 3.6) * (1.6 / size)
-  const pitch = 64 * Math.sqrt(1.5 / size)
-  roll.nextThud = Math.max(roll.nextThud, t + 0.02)
-  while (roll.nextThud < t + 0.25) {
-    thud(roll.nextThud, (0.07 + level * 0.16) * (0.6 + Math.random() * 0.6), pitch * (0.9 + Math.random() * 0.2))
-    roll.nextThud += (0.75 + Math.random() * 0.5) / rate
-  }
-}
-
-/**
- * `level` 0..1 from how fast you roll; `strain` 0..1 how close your Fat is to running
- * out; `size` your ball's radius. Positional, not an object: it's called every frame.
- */
-function rollSet(level, strain = 0, size = 1.5) {
+function runSet(level, strain = 0) {
   if (!roll) return
   // Ten updates a second is plenty for a smooth swell.
   const now = performance.now()
@@ -258,19 +239,18 @@ function rollSet(level, strain = 0, size = 1.5) {
   rollSetAt = now
   const t = ctx.currentTime
   const l = Math.min(1, Math.max(0, level))
-  roll.rumble.gain.gain.setTargetAtTime(0.03 + l * 0.24, t, 0.12)
+  roll.rumble.gain.gain.setTargetAtTime(0.02 + l * 0.12, t, 0.12)
   roll.rumble.filter.frequency.setTargetAtTime(90 + l * 130, t, 0.2)
-  roll.gravel.gain.gain.setTargetAtTime(0.0001 + l * 0.12, t, 0.1)
+  roll.gravel.gain.gain.setTargetAtTime(0.0001 + l * 0.07, t, 0.1)
   roll.gravel.src.playbackRate.setTargetAtTime(0.55 + l * 0.9, t, 0.15)
   roll.growlGain.gain.setTargetAtTime(0.0001 + strain * 0.06, t, 0.08)
   const gust = Math.max(0, l - 0.55) / 0.45
   roll.wind.gain.gain.setTargetAtTime(0.0001 + gust * 0.09, t, 0.15)
   roll.wind.filter.frequency.setTargetAtTime(700 + gust * 1300, t, 0.2)
   roll.growl.frequency.setTargetAtTime(62 + strain * 30, t, 0.2)
-  rollThuds(l, size)
 }
 
-function rollStop() {
+function runStop() {
   if (!roll) return
   const { rumble, gravel, wind, growl, growlGain } = roll
   roll = null
@@ -384,6 +364,15 @@ function noise({ at = 0, duration = 0.3, volume = 0.25, from = 400, to = 2400, q
   src.stop(t + duration + 0.02)
 }
 
+/** A belly hitting bricks, `size` how far it sticks out (m): the THUMP and a knock of stone. */
+function thump(size) {
+  rollBuffers()
+  const big = Math.min(1, size / 1.4)
+  thud(ctx.currentTime, 0.26, 95 - 35 * big)
+  tone(150 - 50 * big, { type: 'sine', duration: 0.2, volume: 0.14, slideTo: 60 })
+  noise({ duration: 0.09, volume: 0.12, from: 1600, to: 500, q: 1.1 })
+}
+
 export const sfx = {
   click() {
     if (ready('click', 40)) tone(660, { type: 'triangle', duration: 0.05, volume: 0.15 })
@@ -403,28 +392,52 @@ export const sfx = {
     if (!ready('levelUp')) return
     ;[523, 659, 784, 1047].forEach((f, i) => tone(f, { type: 'square', at: i * 0.07, duration: 0.14, volume: 0.09 }))
   },
-  /** Curling up into a ball and pushing off: a whoosh and a springy rising boing. */
-  curl() {
-    if (!ready('curl')) return
+  /** Sprinting off down the track: a whoosh and an eager "HUP!" springing up. */
+  dash() {
+    if (!ready('dash')) return
     noise({ duration: 0.4, volume: 0.13, from: 300, to: 2200, q: 0.8 })
-    tone(200, { type: 'triangle', duration: 0.28, volume: 0.1, slideTo: 520 })
-    tone(90, { at: 0.18, duration: 0.25, volume: 0.15, slideTo: 60 })
-  },
-  /** A tape stretched across your belly and snapping: a rising twang, then the crack. */
-  tapeSnap() {
-    if (!ready('tapeSnap', 120)) return
-    tone(160, { type: 'sawtooth', duration: 0.12, volume: 0.06, slideTo: 520 })
-    noise({ at: 0.1, duration: 0.14, volume: 0.32, from: 4200, to: 900, q: 0.9 })
-    tone(900, { type: 'square', at: 0.1, duration: 0.06, volume: 0.05, slideTo: 300 })
+    tone(180, { type: 'triangle', duration: 0.2, volume: 0.1, slideTo: 420 })
+    tone(330, { type: 'square', at: 0.12, duration: 0.09, volume: 0.04, slideTo: 260 })
   },
   /**
-   * A tape stretching round your belly, `level` 0-1 how far: a rubbery creak, rising as
-   * it strains. Positional and throttled: it's called every frame while you press in.
+   * Your belly slamming into a brick wall, `size` how far it sticks out (m): a deep,
+   * fleshy THUMP - deeper the bigger the belly - and the bricks knocking.
    */
-  tapeStretch(level) {
-    if (!ready('tapeStretch', 90)) return
+  wallThump(size = 0.5) {
+    if (ready('wallThump', 150)) thump(size)
+  },
+  /**
+   * A wall giving under your belly, `level` 0-1 how far it's gone: stone grinding and
+   * cracking, harsher as it goes. Positional and throttled: it's called every frame while
+   * you push in.
+   */
+  wallCrack(level) {
+    if (!ready('wallCrack', 85)) return
     const l = Math.min(1, Math.max(0, level))
-    tone(120 + l * 260, { type: 'sawtooth', duration: 0.1, volume: 0.025 + l * 0.04, slideTo: 140 + l * 320 })
+    noise({ duration: 0.06 + l * 0.04, volume: 0.05 + l * 0.12, from: 2600 - l * 900, to: 500, q: 1.4 })
+    if (Math.random() < 0.35 + l * 0.5) tone(240 + Math.random() * 160, { type: 'square', duration: 0.03, volume: 0.02 + l * 0.03, slideTo: 120 })
+  },
+  /**
+   * A brick wall bursting, `size` how far your belly sticks out (m): a big BOOM, the
+   * crash of the wall coming apart, and bricks clattering down the track after.
+   */
+  wallSmash(size = 0.5) {
+    if (!ready('wallSmash', 120)) return
+    const big = Math.min(1, size / 1.4)
+    const t = ctx.currentTime
+    // The boom: a low thud sliding down, felt as much as heard.
+    tone(110 - 40 * big, { duration: 0.5, volume: 0.32, slideTo: 32, attack: 0.004 })
+    tone(220 - 60 * big, { type: 'triangle', duration: 0.18, volume: 0.12, slideTo: 70, attack: 0.003 })
+    // The crash: a burst of rubble noise falling away.
+    noise({ duration: 0.55, volume: 0.42, from: 3600, to: 260, q: 0.6 })
+    noise({ at: 0.03, duration: 0.3, volume: 0.22, from: 900, to: 140, q: 0.9 })
+    // Bricks hitting the ground: hollow clacks scattered over the next half second.
+    rollBuffers()
+    for (let i = 0; i < 9; i += 1) {
+      const at = 0.12 + Math.random() * 0.55 + i * 0.02
+      tone(260 + Math.random() * 420, { type: 'triangle', at, duration: 0.05, volume: 0.03 + Math.random() * 0.04, slideTo: 140 })
+      if (i % 3 === 0) thud(t + at, 0.08 + Math.random() * 0.06, 70 + Math.random() * 40)
+    }
   },
   /**
    * A footstep, `weight` 0-1 how fat you are: a soft pat skinny, a deep THUD as round as
@@ -505,7 +518,7 @@ export const sfx = {
     if (!ready('panelClose', 120)) return
     noise({ duration: 0.14, volume: 0.04, from: 2200, to: 500, q: 0.9 })
   },
-  /** Seeing stars, worn out at the end of a roll: little birds tweeting round your head. */
+  /** Seeing stars, bounced off a wall too strong: little birds tweeting round your head. */
   dizzy() {
     if (!ready('dizzy', 1500)) return
     for (let i = 0; i < 4; i += 1) {
@@ -535,14 +548,40 @@ export const sfx = {
     tone(170, { type: 'sine', at: 0.2, duration: 0.26, volume: 0.16, slideTo: 380 })
     ;[523, 659, 784, 1047].forEach((f, i) => tone(f, { type: 'triangle', at: 0.42 + i * 0.05, duration: 0.3, volume: 0.07, echo: true }))
   },
-  /** Thrown back by a tape too strong: a big rubbery BOING. */
+  /**
+   * A demo wall in the lobby bursting, `level` 0-1 how near you are: a softer boom and
+   * crumble than your own smashes, fading out with distance.
+   */
+  demoSmash(level = 1) {
+    if (!ready('demoSmash', 500)) return
+    const v = 0.15 + 0.45 * Math.min(1, Math.max(0, level))
+    tone(90, { duration: 0.35, volume: 0.22 * v, slideTo: 35, attack: 0.004 })
+    noise({ duration: 0.45, volume: 0.3 * v, from: 2800, to: 240, q: 0.6 })
+    for (let i = 0; i < 5; i += 1) tone(260 + Math.random() * 380, { type: 'triangle', at: 0.15 + Math.random() * 0.45, duration: 0.05, volume: 0.03 * v, slideTo: 140 })
+  },
+  /**
+   * The crowd in the stands going wild as you smash a wall, `level` 0-1 how wild: a roar
+   * swelling and fading - three bands of noise - and a few whistles.
+   */
+  crowdCheer(level = 1) {
+    if (!ready('crowdCheer', 400)) return
+    const v = Math.min(1, Math.max(0.3, level))
+    noise({ duration: 1.6, volume: 0.09 * v, from: 700, to: 1100, q: 0.5 })
+    noise({ at: 0.05, duration: 1.4, volume: 0.07 * v, from: 1500, to: 900, q: 0.7 })
+    noise({ at: 0.1, duration: 1.2, volume: 0.05 * v, from: 350, to: 500, q: 0.8 })
+    for (let i = 0; i < 3; i += 1) {
+      const f = 1700 + Math.random() * 700
+      tone(f, { at: 0.1 + Math.random() * 0.6, duration: 0.35, volume: 0.025 * v, slideTo: f * 1.35, attack: 0.05 })
+    }
+  },
+  /** Thrown back by a wall too strong: a big rubbery BOING. */
   bounce() {
     if (!ready('bounce', 300)) return
     tone(520, { type: 'sine', duration: 0.45, volume: 0.16, slideTo: 110 })
     tone(260, { type: 'triangle', at: 0.02, duration: 0.4, volume: 0.08, slideTo: 70 })
     noise({ duration: 0.12, volume: 0.1, from: 1500, to: 400, q: 1 })
   },
-  /** Thrown back by a tape too strong: a puff and a sad, deflating wah-wah. */
+  /** Thrown back by a wall too strong: a puff and a sad, deflating wah-wah. */
   tired() {
     if (!ready('tired')) return
     noise({ duration: 0.35, volume: 0.12, from: 900, to: 200, q: 0.6 })
@@ -561,7 +600,7 @@ export const sfx = {
     const k = trophyRun % (2 * n - 2)
     bell(TROPHY_SCALE[k < n ? k : 2 * n - 2 - k], { volume: 0.085, decay: 0.32 })
   },
-  /** Coins paid out (a tape smashed, a badge): a fanfare, a shimmering chord and a shower of coins. */
+  /** Coins paid out (a wall smashed, a badge): a fanfare, a shimmering chord and a shower of coins. */
   coins() {
     if (!ready('coins')) return
     ;[784, 988, 1175, 1568].forEach((f, i) => tone(f, { type: 'triangle', at: i * 0.07, duration: 0.2, volume: 0.1, echo: true }))
@@ -609,7 +648,7 @@ export const sfx = {
     tone(140, { type: 'sine', duration: 0.12, volume: 0.12, slideTo: 70 })
     noise({ duration: 0.08, volume: 0.06, from: 900, to: 300, q: 0.7 })
   },
-  rollStart,
-  rollSet,
-  rollStop,
+  runStart,
+  runSet,
+  runStop,
 }

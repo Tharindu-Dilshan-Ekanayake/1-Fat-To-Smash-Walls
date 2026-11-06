@@ -7,12 +7,12 @@ import StrokeText from './StrokeText'
 const TIPS = [
   'Every bite makes you FATTER!',
   'Sit at a Food Court table and you eat all by yourself.',
-  'More Fat = roll further = smash more tapes = more Coins!',
+  'More Fat = smash more walls = run further = more Coins!',
   'Spend Coins on tastier food - every bite gives more Fat.',
   'Rebirth at max level for a Fat boost that lasts forever.',
-  'Every tape takes so much Fat to smash. Too strong? BOING - eat more!',
-  'Every tape you smash through pays Coins!',
-  'You keep your Fat after a roll - roll again and again for Coins.',
+  'Every wall takes so much Fat to smash. Too strong? BOING - eat more!',
+  'Every brick wall you smash through pays Coins!',
+  'You keep your Fat after a run - smash again and again for Coins.',
 ]
 
 /**

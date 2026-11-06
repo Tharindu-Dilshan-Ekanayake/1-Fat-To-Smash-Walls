@@ -5,11 +5,15 @@
  * Shared by client (display) and server (authority): both always agree on costs and
  * multipliers because they read the same table.
  *
- * The loop: eat food to get FAT (your belly grows with every bite), then curl up and
- * roll down the tape track like a ball. Every tape across it takes so much Fat to smash:
- * you burst through every one your Fat is enough for, each paying Coins, until you slam
- * into the first that's too strong and bounce off it. You keep your Fat - you come back
- * as big as you went - so buy better food with the Coins, eat more, and roll further.
+ * The loop: eat food to get FAT (your belly grows with every bite), then charge down the
+ * track. Every brick wall across it takes so much Fat to smash: you burst through every
+ * one your Fat is enough for, belly-first, each paying Coins, until you slam into the
+ * first that's too strong and bounce off it. You keep your Fat - you come back as big as
+ * you went - so buy better food with the Coins, eat more, rebirth for a lasting boost,
+ * and smash further.
+ *
+ * (In code and the protocol the walls are still called `tapes` and a run a `push`: older
+ * names, kept so saves and the server stay compatible.)
  */
 
 // --- Fat and levels ----------------------------------------------------------------
@@ -343,13 +347,13 @@ export const FAT_PACKS = [
 
 /**
  * The guide for brand-new players - all of it: eat until you're fat enough for the first
- * tape (tap, or sit at the FREE Food Court's table), roll down and smash it, and spend
+ * wall (tap, or sit at the FREE Food Court's table), charge down and smash it, and spend
  * the Coins on better food. After that, no more guides. Each step completes when its
- * event fires (with at least `fat` Fat on you, where given: what the first tape needs).
+ * event fires (with at least `fat` Fat on you, where given: what the first wall needs).
  */
 export const TUTORIAL = [
   { text: 'Eat food to get FAT! Tap, or sit at the FREE table!', event: 'eat', target: 'zone0', fat: 20 },
-  { text: 'Roll down the hill and smash through the tape!', event: 'tape', target: 'push' },
+  { text: 'Charge down the track and SMASH through the wall!', event: 'tape', target: 'push' },
   { text: 'Buy the Crispy Fries with your Coins!', event: 'buyFood', target: 'foods' },
 ]
 
@@ -367,9 +371,9 @@ export const BOXITY_BOARDS = [
 
 export const BADGES = {
   firstRun: { name: 'First Run' },
-  firstTape: { name: 'Tape Buster' },
+  firstTape: { name: 'Wall Smasher' },
   firstRebirth: { name: 'First Rebirth' },
   firstPet: { name: 'Pet Owner' },
-  top: { name: 'Finished the Track' },
+  top: { name: 'Smashed Every Wall' },
   future: { name: 'Time Traveller' },
 }

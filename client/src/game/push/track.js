@@ -7,37 +7,57 @@ import { addTree } from '../world/terrain'
 import { isSlope, safeStart, STAGES, stageAt, stageStart, TRACK, TRACK_LENGTH } from './course'
 import { RIM_X, slopeBoxPlacement, surfaceY, zAt } from './path'
 import { SAFE_THEME, STAGE_THEMES } from './themes'
+import { pillarColor, WALL_HEIGHT } from './wallLook'
 
 /**
- * The tape track down the valley, generated in 40 m chunks on demand. Each chunk is a
+ * The track down the valley, generated in 40 m chunks on demand. Each chunk is a
  * BlockSet (one draw call); content is seeded by chunk index, so every client builds an
  * identical valley and a chunk can be thrown away and rebuilt at will.
  *
- * Cross-section: a narrow tiled floor between tall stepped cliffs of big square studs -
- * a low step, a higher one and the rim - with a ledge running out beyond the rim and
- * scenery on the steps and the ledge. Along it, each stage's slope with glowing chevrons
- * down the middle, then the striped posts its tapes are strung between (the tapes are
- * Tapes.jsx's), then a flat light-blue checkpoint, then the next stage's slope.
- * Everything structural lies along the track (tipped on the slopes, level on the flats);
- * trees and props stand upright.
+ * Cross-section - the SMASH ARENA: a narrow tiled floor between two padded barriers, a
+ * strip of racing lights along the top of each; behind them grandstands climbing in
+ * tiers, packed with a crowd that hops and cheers (and goes wild when you smash a wall:
+ * materials' uCheer); a back wall hung with banners in the stage's colours, a roof
+ * canopy over the upper tiers and floodlights on top; then the stage's own world beyond
+ * - its ground at rim height, running out to the ledge, with its scenery. Along it, each
+ * stage's slope with racing marquee chevrons down the middle and lane lines, an arch
+ * with the stage's name over its start, then the stone pillars its brick wall stands
+ * between (the walls are Walls.jsx's), then a checkered checkpoint, then the next
+ * stage's slope. Everything structural lies along the track (tipped on the slopes, level
+ * on the flats); the crowd, trees and props stand upright.
+ *
+ * The first chunk, beside the lobby, is the city's: its outer blocks are lit-up towers
+ * (no scenery), so the arena runs straight out of SMASH CITY.
  */
 
 export const CHUNK = 40
 const HALF = TRACK_HALF_WIDTH
-/** The walls' steps, from the floor's edge out: [inner x, outer x, height above the floor]. */
-const STEPS = [
-  [HALF, 9, 6],
-  [9, 15, 12],
-  [15, RIM_X, 18],
-]
-const RIM_H = STEPS[STEPS.length - 1][2]
+/** The padded barrier along each side of the floor: its outer edge, and how tall. */
+const BARRIER_X = HALF + 0.5
+const BARRIER_H = 1.25
+/** The grandstand: from the barrier back to STAND_X, TIERS tiers each TIER_RISE higher. */
+const STAND_X = 14.5
+const TIERS = 6
+const TIER_W = (STAND_X - BARRIER_X) / TIERS
+const TIER_RISE = 0.9
+/** Which tiers have a crowd on them (counting from the bottom, 1-based), at full density. */
+const CROWD_TIERS = [1, 2, 3, 4, 5]
+/** The back wall behind the stands, and the roof over the upper tiers. */
+const BACK_X = 16
+const BACK_H = 11
+const ROOF_X = 8.6
+const ROOF_Y = 11.3
+/** Beyond the arena the stage's own ground, at rim height, out to the rim. */
+const RIM_H = 18
+/** Where scenery stands just beyond the arena, on the stage's ground. */
+const OUTER_X = (BACK_X + RIM_X) / 2
 /** How far the ledge beyond the rim runs: short beside the lobby, wide after. */
 const LEDGE_NEAR = RIM_X + 10
 const LEDGE_FAR = 95
-/** The finish: a flat stretch past the last tape, then a wall. */
+/** The finish: a flat stretch past the last brick wall, then the valley's end wall. */
 export const SUMMIT_LENGTH = 34
 export const trackEnd = () => TRACK_LENGTH + SUMMIT_LENGTH
-/** No scenery on the first chunk, where the lobby's mountains stand beside the track. */
+/** No scenery on the first chunk, where the city stands beside the track. */
 const DECOR_START = 40
 
 /** Where the track bends: the end and the start of every slope after the first, and the finish. */
@@ -56,11 +76,19 @@ function bends() {
  * proud of the slope's, so the two never flicker where they overlap.
  */
 const BACKFILL = 3.2
+/** How high a stage arch's beam is over the floor. */
+const ARCH_H = 6.4
 const PROUD = 0.05
-/** Chevrons down the middle of a slope, this far apart; lanterns down its sides, and arches over it. */
+/** Chevrons down the middle of a slope this far apart; floodlights and banners along the back walls. */
 const CHEVRON_EVERY = 6
-const LANTERN_EVERY = 12
-const ARCH_EVERY = 48
+const FLOODLIGHT_EVERY = 36
+const BANNER_EVERY = 12
+/** The crowd: one fan about every this many metres along a tier (at full density). */
+const FAN_EVERY = 1.15
+const SHIRTS = ['#ff3b5c', '#ffd21f', '#4ef05a', '#2fc6ff', '#b15cff', '#ffffff', '#ff8a1e', '#ff7ad9']
+const SKINS = ['#f3d2b5', '#e0a87c', '#b07a52', '#7a4a2a', '#ffe0c8']
+/** The city towers beside the lobby's end of the track (the first chunk). */
+const CITY = { wall: '#8f9ab0', wallStyle: STYLE.LITWIN, cap: '#4a4f5c', capStyle: STYLE.SMOOTH }
 
 /** A colour a little lighter (`by` > 0) or darker (< 0) than `color`, made once. */
 const shades = new Map()
@@ -78,30 +106,82 @@ function slab(b, m, x, h, sx, sy, sz, color, style = STYLE.STUDS, lean = 0) {
   b.add(px, py, pz, sx, sy, sz, color, style, 0, rotX, lean)
 }
 
-/** Height of a step's top (or the ledge, at RIM_H) under world z, for standing props on it. */
+/** Height of a surface `h` up (the ledge, at RIM_H, say) under world z, for standing props on it. */
 const topY = (z, h) => surfaceY(z, h + 0.5)
 
 // --- The track -----------------------------------------------------------------------
 
-/** Stepped cliffs on both sides, of `look`, for metres [m0, m0 + len) about `mid`. */
-function cliffs(b, mid, len, look, proud) {
-  const style = look.wallStyle ?? STYLE.BLOCK
+/**
+ * The crowd on the stands either side for metres [m0, m1): fans on the tiers in shirts
+ * of every colour (and the stage's), hopping on the spot - each at its own beat - in the
+ * toy shader (BlockSet.setAnim), so they cost no CPU at all. Fewer on weaker presets
+ * (`density`), and no heads on the weakest.
+ */
+function crowd(b, m0, m1, theme, rand, density) {
+  const shirts = [...SHIRTS, ...(theme.name ?? [])]
+  const heads = density >= 0.6
+  const tiers = density >= 0.6 ? CROWD_TIERS : CROWD_TIERS.filter((t) => t % 2 === 1)
+  const every = FAN_EVERY / Math.min(1, 0.35 + density * 0.65)
   for (const side of [-1, 1]) {
-    for (const [stepInner, outer, h] of STEPS) {
-      const inner = stepInner - proud
-      const x = (side * (inner + outer)) / 2
-      slab(b, mid, x, h / 2 - 2, outer - inner, h + 4, len, look.wall, style)
-      if (look.cap) slab(b, mid, x, h + 0.25, outer - inner + 0.1, 0.5, len, look.cap, look.capStyle ?? STYLE.BLOCK)
+    for (const tier of tiers) {
+      const x = side * (BARRIER_X + (tier - 0.45) * TIER_W)
+      const top = BARRIER_H + tier * TIER_RISE
+      for (let m = m0 + rand() * every; m < m1; m += every * (0.75 + rand() * 0.5)) {
+        if (rand() < 0.12) continue
+        const z = zAt(m)
+        const y = surfaceY(z, top)
+        const hop = 0.16 + rand() * 0.16
+        const phase = 100 + rand() * 6.28
+        const tall = 0.62 + rand() * 0.12
+        const fx = x + (rand() - 0.5) * 0.4
+        b.setAnim(phase, hop / tall)
+        b.addOn(fx, y, z, 0.52, tall, 0.4, pick(rand, shirts), STYLE.SMOOTH)
+        if (heads) {
+          b.setAnim(phase, hop / 0.36)
+          b.addOn(fx, y + tall, z, 0.36, 0.36, 0.36, pick(rand, SKINS), STYLE.SMOOTH)
+        }
+      }
     }
+  }
+  b.setAnim()
+}
+
+/**
+ * The arena either side, of `look`, for metres [m0, m0 + len) about `mid`: the barrier
+ * and its racing lights, the tiers of the stands, the back wall, the roof canopy, and
+ * the stage's ground beyond out to the rim. `outer` is what that ground looks like.
+ */
+function arena(b, mid, len, look, outer, proud) {
+  const seat = shade(look.wall, 0.14)
+  const back = shade(look.wall, -0.22)
+  for (const side of [-1, 1]) {
+    // The barrier, padded in the stage's dark shade, the racing lights along its top.
+    slab(b, mid, side * (HALF + 0.25 - proud), BARRIER_H / 2 - 1 + proud, 0.5, BARRIER_H + 2, len, back, STYLE.SMOOTH)
+    slab(b, mid, side * (HALF + 0.25 - proud), BARRIER_H + 0.06 + proud, 0.56, 0.12, len, look.gate, STYLE.CHASE)
+    // The stands: each tier a step back and up from the one below, seat rows in turn.
+    for (let k = 1; k <= TIERS; k += 1) {
+      const inner = BARRIER_X + (k - 1) * TIER_W - proud
+      const top = BARRIER_H + k * TIER_RISE + proud
+      slab(b, mid, (side * (inner + STAND_X)) / 2, top / 2 - 1, STAND_X - inner, top + 2, len, k % 2 ? look.wall : seat, STYLE.SMOOTH)
+    }
+    // The back wall, and the roof canopy over the upper tiers with a glowing edge.
+    slab(b, mid, (side * (STAND_X + BACK_X)) / 2, BACK_H / 2 - 1 + proud, BACK_X - STAND_X, BACK_H + 2, len, back, look.wallStyle ?? STYLE.BLOCK)
+    slab(b, mid, (side * (ROOF_X + BACK_X + 0.2)) / 2, ROOF_Y + proud, BACK_X + 0.2 - ROOF_X, 0.45, len, shade(look.wall, -0.4), STYLE.SMOOTH)
+    slab(b, mid, side * (ROOF_X + 0.1), ROOF_Y - 0.28 + proud, 0.2, 0.14, len, look.gate, STYLE.GLOW)
+    // The stage's own ground beyond, at rim height.
+    const x = (side * (BACK_X + RIM_X)) / 2
+    slab(b, mid, x, RIM_H / 2 - 2, RIM_X - BACK_X, RIM_H + 4, len, outer.wall, outer.wallStyle ?? STYLE.BLOCK)
+    if (outer.cap) slab(b, mid, x, RIM_H + 0.25, RIM_X - BACK_X + 0.1, 0.5, len, outer.cap, outer.capStyle ?? STYLE.BLOCK)
   }
 }
 
 /**
- * Floor, stepped cliffs, the ledge beyond and, down a slope, chevrons down the middle,
- * for metres [a, c). `kind` is 'slope', 'safe' (a checkpoint: light blue, whatever the
- * stage) or 'summit' (the finish).
+ * Floor, the arena either side, the ledge beyond and, down a slope, chevrons and lane
+ * lines, the crowd, floodlights and banners, for metres [a, c). `kind` is 'slope',
+ * 'safe' (a checkpoint: checkered, light blue stands, whatever the stage) or 'summit'
+ * (the finish).
  */
-function walls(b, a, c, theme, wide, kind) {
+function walls(b, a, c, theme, wide, kind, rand, density) {
   const len = c - a
   const mid = (a + c) / 2
   const flat = kind !== 'slope'
@@ -111,72 +191,89 @@ function walls(b, a, c, theme, wide, kind) {
   const look = kind === 'safe' ? SAFE_THEME : theme
   const floorStyle = look.floorStyle ?? STYLE.TILES
   slab(b, mid, 0, -0.5, HALF * 2 + 2, 1, len, look.floor, floorStyle)
-  cliffs(b, wallMid, wallLen, look, flat ? PROUD : 0)
-  for (const side of [-1, 1]) {
-    // A darker kerb down each side of the floor, framing the path.
-    slab(b, mid, side * (HALF - 0.4), 0.03, 0.8, 0.06, len, shade(look.floor, -0.18), floorStyle)
-    // A lighter trim along the lip of every step (grassy cliffs have their grass instead).
-    if ((look.wallStyle ?? STYLE.BLOCK) !== STYLE.BLOCK_GRASS) {
-      const proud = flat ? PROUD : 0
-      for (const [inner, , h] of STEPS) slab(b, wallMid, side * (inner - proud - 0.06), h - 0.16, 0.3, 0.32, wallLen, shade(look.wall, 0.3), STYLE.SMOOTH)
-    }
-  }
+  // Beside the lobby the outer blocks are the city's towers; further on, the stage's world.
+  const outer = wide ? theme : CITY
+  arena(b, wallMid, wallLen, look, outer, flat ? PROUD : 0)
+  crowd(b, a, c, theme, rand, density)
+  // A darker kerb down each side of the floor, framing the path.
+  for (const side of [-1, 1]) slab(b, mid, side * (HALF - 0.4), 0.03, 0.8, 0.06, len, shade(look.floor, -0.18), floorStyle)
   // The ledge beyond the rim, as solid ground down to below the floor: the stage's own,
   // even beside a checkpoint.
-  const style = theme.wallStyle ?? STYLE.BLOCK
+  const style = outer.wallStyle ?? STYLE.BLOCK
   const far = wide ? LEDGE_FAR : LEDGE_NEAR
   const width = far - RIM_X
   for (const side of [-1, 1]) {
     const x = side * (RIM_X + width / 2)
-    slab(b, wallMid, x, RIM_H / 2 - 4, width, RIM_H + 8, wallLen, theme.wall, style)
-    if (theme.cap) slab(b, wallMid, x, RIM_H + 0.25, width, 0.5, wallLen, theme.cap, theme.capStyle ?? STYLE.BLOCK)
+    slab(b, wallMid, x, RIM_H / 2 - 4, width, RIM_H + 8, wallLen, outer.wall, style)
+    if (outer.cap) slab(b, wallMid, x, RIM_H + 0.25, width, 0.5, wallLen, outer.cap, outer.capStyle ?? STYLE.BLOCK)
   }
-  if (kind !== 'slope') return
-  // Lanterns down both sides in the stage's colour, on dark posts.
-  for (let m = Math.ceil(a / LANTERN_EVERY) * LANTERN_EVERY + 6; m < c - 1; m += LANTERN_EVERY) {
+  // Floodlights on the back walls, and banners in the stage's colours hung between them.
+  for (let m = Math.ceil(a / BANNER_EVERY) * BANNER_EVERY + 4; m < c - 1; m += BANNER_EVERY) {
+    const flood = Math.round(m) % FLOODLIGHT_EVERY < BANNER_EVERY
     for (const side of [-1, 1]) {
-      const [px, py, pz] = slopeBoxPlacement(m, side * (HALF - 0.35), 0)
-      b.addOn(px, py - 0.1, pz, 0.18, 1.7, 0.18, '#2c313c', STYLE.SMOOTH)
-      b.add(px, py + 1.85, pz, 0.46, 0.46, 0.46, theme.gate, STYLE.GLOW)
-      b.add(px, py + 2.13, pz, 0.56, 0.1, 0.56, '#2c313c', STYLE.SMOOTH)
+      const z = zAt(m)
+      if (flood) {
+        const base = surfaceY(z, BACK_H)
+        b.addOn(side * (BACK_X - 0.75), base, z, 0.35, 6.5, 0.35, '#2c313c', STYLE.SMOOTH)
+        b.add(side * (BACK_X - 1.1), base + 6.6, z, 0.4, 1.4, 2.6, '#fff6d8', STYLE.GLOW, 0, 0, side * 0.5)
+      } else {
+        const colors = theme.name ?? [theme.gate]
+        b.add(side * (STAND_X - 0.06), surfaceY(z, 8.6), z, 0.12, 2.4, 3.6, colors[(Math.round(m / BANNER_EVERY) + (side > 0 ? 1 : 0)) % colors.length], STYLE.GLOW)
+      }
     }
   }
-  // Now and then an arch over the track: stone pillars and a beam with a glowing band.
-  for (let m = Math.ceil(a / ARCH_EVERY) * ARCH_EVERY + ARCH_EVERY / 2; m < c - 2; m += ARCH_EVERY) {
-    const [, py, pz] = slopeBoxPlacement(m, 0, 0)
-    for (const side of [-1, 1]) b.addOn(side * (HALF - 0.3), py - 0.6, pz, 0.7, 7.6, 0.7, shade(theme.wall, 0.15), STYLE.BLOCK)
-    b.addOn(0, py + 6.7, pz, HALF * 2 + 0.4, 0.8, 0.8, shade(theme.wall, 0.15), STYLE.BLOCK)
-    b.addOn(0, py + 6.55, pz + 0.04, HALF * 2 - 0.8, 0.2, 0.86, theme.gate, STYLE.GLOW)
-  }
-  // Soft glowing chevrons down the middle, pointing the way.
+  if (kind !== 'slope') return
+  // Lane lines down the floor.
+  for (const x of [-1.27, 1.27]) slab(b, mid, x, 0.02, 0.1, 0.04, len - 0.4, '#ffffff', STYLE.SMOOTH)
+  // Marquee chevrons down the middle, their lights racing the way you run.
   for (let m = Math.ceil(a / CHEVRON_EVERY) * CHEVRON_EVERY + 3; m < c - 1; m += CHEVRON_EVERY) {
     const [px, py, pz, rotX] = slopeBoxPlacement(m, 0, 0.04)
     for (const side of [-1, 1]) {
-      b.add(px + side * 0.95, py, pz, 2.4, 0.08, 0.5, '#f3fff0', STYLE.GLOW, -side * 0.6, rotX, 0)
+      b.add(px + side * 0.95, py, pz, 2.4, 0.08, 0.5, theme.gate, STYLE.CHASE, -side * 0.6, rotX, 0)
     }
   }
 }
 
 /**
- * The posts tape `stage`'s wall of tape is stretched between, at metre `m`: a big orange
- * and white striped traffic post either side of the floor, on a dark foot, with a cap and
- * a light in the stage's colour on top.
+ * The pillars stage `stageId`'s brick wall stands between, at metre `m`: a chunky stone
+ * pillar either side of the floor, a shade darker than the wall's bricks, on a dark
+ * plinth, with a cap and a lamp in the stage's colour on top.
  */
-function tapeGate(b, m, theme) {
+function wallGate(b, m, theme, stageId) {
   const [, py, pz] = slopeBoxPlacement(m, 0, 0)
+  const stone = pillarColor(stageId)
+  const top = WALL_HEIGHT + 0.25
   for (const side of [-1, 1]) {
-    const x = side * (HALF - 0.12)
-    b.addOn(x, py - 0.3, pz, 1.0, 0.45, 1.0, '#2c313c', STYLE.SMOOTH)
-    b.addOn(x, py + 0.1, pz, 0.78, 3.6, 0.78, '#ff6a1a', STYLE.STRIPES)
-    b.addOn(x, py + 3.7, pz, 0.9, 0.28, 0.9, '#ff6a1a', STYLE.SMOOTH)
-    b.addOn(x, py + 3.98, pz, 0.42, 0.3, 0.42, theme.gate, STYLE.GLOW)
+    const x = side * (HALF - 0.1)
+    b.addOn(x, py - 0.3, pz, 1.25, 0.55, 1.25, '#2c313c', STYLE.SMOOTH)
+    b.addOn(x, py + 0.2, pz, 0.95, top - 0.2, 0.95, stone, STYLE.BLOCK)
+    b.addOn(x, py + top, pz, 1.15, 0.3, 1.15, stone, STYLE.SMOOTH)
+    b.addOn(x, py + top + 0.3, pz, 0.5, 0.36, 0.5, theme.gate, STYLE.GLOW)
   }
 }
 
 /**
- * The checkpoint below stage `i` (its look is walls'): the posts of the tape it starts
- * with, a glowing line across just past them, and a line in the next stage's colour
- * where the next slope starts.
+ * The arch over the start of stage `i`'s slope: hazard-striped pillars, a beam lit with
+ * racing marquee bulbs in the stage's colour, and a glowing board over it (its name is
+ * a label: Push.jsx).
+ */
+function stageArch(b, i) {
+  const theme = STAGE_THEMES[STAGES[i].id]
+  const [, py, pz] = slopeBoxPlacement(stageStart(i) - 1.2, 0, 0)
+  for (const side of [-1, 1]) {
+    b.addOn(side * (HALF + 0.15), py - 0.4, pz, 0.8, ARCH_H + 0.4, 0.8, '#ffcc1a', STYLE.HAZARD)
+    b.add(side * (HALF + 0.15), py + ARCH_H + 1.2, pz, 0.6, 0.6, 0.6, theme.gate, STYLE.GLOW, 0.785)
+  }
+  b.addOn(0, py + ARCH_H, pz, HALF * 2 + 1.4, 0.9, 0.7, '#2c313c', STYLE.SMOOTH)
+  for (const face of [-1, 1]) b.add(0, py + ARCH_H + 0.45, pz + face * 0.38, HALF * 2 + 0.9, 0.24, 0.06, theme.gate, STYLE.CHASE)
+  b.addOn(0, py + ARCH_H + 0.9, pz, HALF * 2 - 1, 1.5, 0.3, shade(theme.wall, -0.3), STYLE.SMOOTH)
+  b.addOn(0, py + ARCH_H + 1.0, pz + 0.18, HALF * 2 - 1.4, 1.3, 0.05, theme.gate, STYLE.GLOW)
+}
+
+/**
+ * The checkpoint below stage `i` (its look is walls'): the pillars of the brick wall it
+ * starts with, a glowing line across just past them, the arch over the next slope's
+ * start and a line in its colour where it starts.
  */
 function safezone(b, i) {
   const a = safeStart(i)
@@ -184,14 +281,15 @@ function safezone(b, i) {
     const [x, y, z] = slopeBoxPlacement(m, 0, 0.05)
     b.add(x, y, z, HALF * 2 - 0.2, 0.1, 0.5, color, STYLE.GLOW)
   }
-  tapeGate(b, a, STAGE_THEMES[STAGES[i - 1].id])
+  wallGate(b, a, STAGE_THEMES[STAGES[i - 1].id], STAGES[i - 1].id)
+  stageArch(b, i)
   line(a + 0.8, '#e8f7ff')
   line(stageStart(i) - 0.4, STAGE_THEMES[STAGES[i].id].gate)
 }
 
-/** The finish: the last tape's posts, a golden platform, a giant trophy on a plinth, and the valley's end wall. */
-function summit(b, theme) {
-  tapeGate(b, TRACK_LENGTH, theme)
+/** The finish: the last brick wall's pillars, a golden platform, a giant trophy on a plinth, and the valley's end wall. */
+function summit(b, theme, stageId) {
+  wallGate(b, TRACK_LENGTH, theme, stageId)
   const m = TRACK_LENGTH + SUMMIT_LENGTH * 0.62
   const [px, py, pz, rotX] = slopeBoxPlacement(TRACK_LENGTH + SUMMIT_LENGTH / 2, 0, 0.06)
   b.add(px, py, pz, HALF * 2 - 0.4, 0.12, SUMMIT_LENGTH - 1, '#ffd21f', STYLE.PLATE, 0, rotX)
@@ -496,10 +594,10 @@ const ledge = (m, side, out) => {
   const z = zAt(m)
   return [side * (RIM_X + out), topY(z, RIM_H), z]
 }
-/** A spot on the middle step's top at metre m, seen from the track below. */
+/** A spot on the stage's ground just beyond the arena at metre m, seen over the stands. */
 const step = (m, side) => {
   const z = zAt(m)
-  return [(side * (STEPS[1][0] + STEPS[1][1])) / 2, topY(z, STEPS[1][2]), z]
+  return [side * OUTER_X, topY(z, RIM_H), z]
 }
 
 const DECOR = {
@@ -743,16 +841,16 @@ export function buildChunk(index, { density = 1 } = {}) {
     const c = cuts[i + 1]
     const mid = (a + c) / 2
     const kind = mid > TRACK_LENGTH ? 'summit' : isSlope(mid) ? 'slope' : 'safe'
-    // A checkpoint looks like the stage whose tape it is past; a slope like its own.
+    // A checkpoint looks like the stage whose wall it is past; a slope like its own.
     const stage = STAGES[kind === 'safe' ? stageAt(mid) - 1 : stageAt(mid)]
-    walls(b, a, c, STAGE_THEMES[stage.id], wide, kind)
+    walls(b, a, c, STAGE_THEMES[stage.id], wide, kind, rand, density)
     DECOR[stage.id](b, a, c, rand, density)
   }
 
   for (let i = 1; i < STAGES.length; i += 1) {
     if (safeStart(i) >= m0 && safeStart(i) < m1) safezone(b, i)
   }
-  if (TRACK_LENGTH >= m0 && TRACK_LENGTH < m1) summit(b, STAGE_THEMES[STAGES[STAGES.length - 1].id])
+  if (TRACK_LENGTH >= m0 && TRACK_LENGTH < m1) summit(b, STAGE_THEMES[STAGES[STAGES.length - 1].id], STAGES[STAGES.length - 1].id)
   return b
 }
 

@@ -44,7 +44,7 @@ function isResetSentinel(equipped) {
  * nothing, it's handed production's addresses from the one environment helper.
  */
 /** This game on Boxity: Belly Buster. */
-const GAME_SLUG = 'get-fat-to-break-tape'
+const GAME_SLUG = '1-fat-to-smash-walls'
 
 function initOptions(gameSlug) {
   if (!import.meta.env.DEV || toldEnvironment()) return { gameSlug }

@@ -119,8 +119,8 @@ function paintLine(ctx, { text, fill, edge }, width, height, top, slant) {
 }
 
 /**
- * The painted signs, drawn once the font has loaded: "ROLL!" across the ROLL ZONE at the
- * start of the track, "Step In to ROLL!" on the wooden sign beside it, and - together,
+ * The painted signs, drawn once the font has loaded: "SMASH!" across the SMASH ZONE at
+ * the start of the track, "Step In to SMASH!" on the wooden sign beside it, and - together,
  * in one texture and one mesh - "FOOD SHOP" on the board on the food hut's roof and
  * "CHAMPION EATER" on the plaque on the statue's plinth. Each sits a couple of
  * centimetres proud of what it's painted on, so it can't sink into it.
@@ -132,7 +132,7 @@ export async function createPaintedSigns(maxTexture) {
   await document.fonts?.load(`64px ${FONT}`).catch(() => null)
 
   const zoneWidth = PUSH_ZONE.maxX - PUSH_ZONE.minX - 4.2
-  const zone = paintText('ROLL!', maxTexture, {
+  const zone = paintText('SMASH!', maxTexture, {
     aspect: 0.32,
     fill: ['#ffffff', '#ffffff', '#e6ecf5'],
     edge: '#9aa6b8',
@@ -170,7 +170,7 @@ export async function createPaintedSigns(maxTexture) {
   const start = paintText(
     [
       { text: 'Step In', fill: ['#ffffff', '#ffffff', '#ffe6c4'], edge: '#7a3f12' },
-      { text: 'to ROLL!', fill: ['#fff7a8', '#ffd21f', '#ff9c00'], edge: '#7a3f12' },
+      { text: 'to SMASH!', fill: ['#fff7a8', '#ffd21f', '#ff9c00'], edge: '#7a3f12' },
     ],
     maxTexture,
     { aspect: (height - 0.5) / (width - 0.5), slant: 0.1, worldWidth: width - 0.5 },

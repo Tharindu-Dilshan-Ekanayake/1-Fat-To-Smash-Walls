@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Color, Matrix4, Quaternion, Vector3 } from 'three'
 
-import { walkSpeed } from '@shared/balance'
+import { RUN_SPEED, walkSpeed } from '@shared/balance'
 import { isZoneUnlocked } from '@shared/logic'
 import {
   benchAt,
@@ -28,8 +28,8 @@ import PlayerAvatar, { AvatarShaderWarmup } from './PlayerAvatar'
 import { bulkFor, chewAt, FAT_SCALE, growBody, tableBiteAt } from './playerPose'
 import { emoteMotion, stopEmote } from './emotes'
 import { burst } from './fx/fxQueue'
-import { ballRadius, trackPoint } from './push/path'
-import { advancePush, push } from './push/pushControl'
+import { BELLY_HEIGHT, bellyReach, feetPoint } from './push/path'
+import { advancePush, nextWallAhead, push, pushTimeScale } from './push/pushControl'
 import { runtime } from './runtime'
 import useKeyboard from './useKeyboard'
 
@@ -50,14 +50,26 @@ const CURL_MS = 640
 const BITE_HOLD = 0.45
 /** Where in a bite you swallow: GULP. */
 const GULP_AT = 0.82
-/** Facing down the track as you roll; at the end, turned to the camera at your side. */
+/** Facing down the track as you run; at the end, turned to the camera at your side. */
 const DOWNHILL_YAW = Math.PI
 const CHEER_YAW = Math.PI / 2
-/** At the end, the cheer comes in over this long; worn out, the dizzy heap over this. */
+/** Steering, you turn this far (radians) towards where you're heading. */
+const STEER_TURN = 0.3
+/** At the end, the cheer comes in over this long; bounced off a wall, the dizzy heap over this. */
 const CHEER_IN = 0.5
 const TIRED_IN = 0.45
-/** Curled up, the middle of the ball is this far above your feet's spot when standing (skinny -> fat). */
-const BALL_MIDDLE = [0.95, 1.2]
+/** Running cadence: stride phase per second at a standstill, and more per RUN_SPEED of speed. */
+const SPRINT_CADENCE = [8, 5]
+/**
+ * The belly smash: you brace into it from this far off a wall (m), and hold it this long
+ * (ms) after bursting through, easing out over this long.
+ */
+const RAM_FROM = 3.2
+const RAM_HOLD_MS = 160
+const RAM_OUT_MS = 380
+/** Your belly squashing against a wall: the wobble's kick on first touch, and as it bursts. */
+const SLAM_KICK = 12
+const SMASH_KICK = 18
 /**
  * The belly's jelly wobble - a spring, kicked by every bite (when the food reaches your
  * mouth) and by every bit of growth, and by landing from a jump: squashes you down and
@@ -92,7 +104,7 @@ const BREATH = 0.014
 const HAPPY_MS = 900
 const SPIN_MS = 1100
 const SPIN_TURNS = 2
-/** Worn out at the end of a roll: stars going round your head. */
+/** Bounced off a wall too strong: stars going round your head. */
 const STARS = 3
 const STAR_ORBIT = 0.42
 const _star = new Matrix4()
@@ -112,9 +124,8 @@ const _targetQuat = new Quaternion()
 const _up = new Vector3(0, 1, 0)
 const _clamped = { x: 0, z: 0 }
 const _seatAt = { x: 0, z: 0 }
-/** Steering, handed to the roll each frame. */
+/** Steering, handed to the run each frame. */
 const pushInput = { side: 0 }
-const TWO_PI = Math.PI * 2
 
 /** Pushes a circle out of an axis-aligned rect. Returns true on contact. */
 function pushOut(pos, rect) {
@@ -157,9 +168,9 @@ function pushOut(pos, rect) {
  * In the plaza you walk, and take a bite of your food when you click. Step onto a Food
  * Court's deck and you walk yourself to its long bench, sit and eat on a loop, until you
  * move or jump (walking into the bench sits you too). The fatter you are, the rounder
- * (and a little bigger) you're drawn. On the ROLL ZONE you curl up into a ball and roll
- * down the track - sideways steers - shrinking as the roll burns your Fat. Your logical
- * position stays on the ROLL ZONE all the while (it's what the server checks); only the
+ * (and a little bigger) you're drawn. From the SMASH ZONE you sprint off down the track
+ * on your own - sideways steers - and smash through brick walls belly-first. Your logical
+ * position stays on the SMASH ZONE all the while (it's what the server checks); only the
  * drawn character goes down the track.
  *
  * Reads and writes `runtime.player`; never touches React state per frame.
@@ -177,14 +188,11 @@ export function Player({ onAvatarReady }) {
   }, [onAvatarReady])
   const groupRef = useRef(null)
   const visualRef = useRef(null)
-  /** Turns about the middle of the ball while rolling; `ballRef` holds the body off it. */
-  const rollRef = useRef(null)
-  const ballRef = useRef(null)
-  /** The belly's wobble: value and speed, the last bite and growth it was kicked by. */
-  const jiggle = useRef({ x: 0, v: 0, bite: 0, eaten: 0, bulk: -1, puff: 0 })
+  /** The belly's wobble: value and speed, the last bite, growth, wall slam and smash it was kicked by. */
+  const jiggle = useRef({ x: 0, v: 0, bite: 0, eaten: 0, bulk: -1, puff: 0, slam: 0, smash: 0 })
   /** The click bite in progress: when it (notionally) started, the last click, how hard it was chomping. */
   const biting = useRef({ start: -1e9, ate: 0, chew: 0, t: 1, end: 0, beat: 1 })
-  /** The dizzy stars round your head when a roll wears you out. */
+  /** The dizzy stars round your head when a wall throws you back. */
   const starsRef = useRef(null)
   const stars = useMemo(() => {
     const mesh = createBoxInstances(STARS, sharedMaterials().toy, STYLE.GLOW)
@@ -194,9 +202,9 @@ export function Player({ onAvatarReady }) {
     return mesh
   }, [])
   useEffect(() => () => disposeBlocks(stars), [stars])
-  /** How curled up you're drawn (1 rolling, 0 standing), and how far round. */
-  const curled = useRef(0)
-  const shownRoll = useRef(0)
+  /** How far into the belly smash you're drawn (0-1), and which way you're turned steering. */
+  const ramming = useRef(0)
+  const steerYaw = useRef(0)
   const handRef = useRef(null)
   const heldRef = useRef(null)
   const keys = useKeyboard()
@@ -214,7 +222,8 @@ export function Player({ onAvatarReady }) {
     maxSpeed: walkSpeed(),
     vy: 0,
     stride: 0,
-    rolling: false,
+    dashing: false,
+    ram: 0,
     tired: 0,
     cheer: 0,
     curl: 0,
@@ -340,39 +349,68 @@ export function Player({ onAvatarReady }) {
     motion.happy = player.happyAt && sinceHappy < HAPPY_MS ? Math.sin((Math.PI * sinceHappy) / HAPPY_MS) : 0
     const sinceSpin = now - player.spinAt
 
-    // --- Rolling down the track ---------------------------------------------------
+    // --- Running down the track, smashing walls ------------------------------------
     if (push.active && group && visual) {
       pushInput.side = Math.max(-1, Math.min(1, (k.right ? 1 : 0) - (k.left ? 1 : 0) + joy.joyX))
-      push.radius = ballRadius(motion.bulk) * size
+      push.radius = bellyReach(motion.bulk) * size
+      push.bellyY = BELLY_HEIGHT * size
       advancePush(delta, pushInput)
       if (!push.active) return
       if (!wasPushing.current) {
         wasPushing.current = true
         velocity.current.set(0, 0, 0)
         vy.current = 0
-        curled.current = 0
-        shownRoll.current = 0
+        ramming.current = 0
+        steerYaw.current = 0
+        j.slam = 0
+        j.smash = push.smashAt
         visual.quaternion.setFromAxisAngle(_up, DOWNHILL_YAW)
       }
       player.anim = 'push'
       player.speed = 0
-      // Curled up while rolling; unrolling once it's over, the turn easing round to upright.
-      const rolling = push.phase === 'roll'
-      curled.current += ((rolling ? 1 : 0) - curled.current) * (1 - Math.exp(-(rolling ? 14 : 7) * delta))
-      if (rolling) shownRoll.current = push.roll
-      else {
-        const upright = Math.ceil(shownRoll.current / TWO_PI) * TWO_PI
-        shownRoll.current += (upright - shownRoll.current) * (1 - Math.exp(-9 * delta))
-      }
-      const c = curled.current
-      trackPoint(push.meter, push.x, push.radius * c, group.position)
-      if (rollRef.current) rollRef.current.rotation.x = shownRoll.current
-      if (ballRef.current) ballRef.current.position.y = -c * (BALL_MIDDLE[0] + (BALL_MIDDLE[1] - BALL_MIDDLE[0]) * motion.bulk)
-      _targetQuat.setFromAxisAngle(_up, push.phase === 'top' ? CHEER_YAW : DOWNHILL_YAW)
+      // Your strides move in the smash's slow motion too.
+      const slow = delta * pushTimeScale(now)
+      const running = push.phase === 'run'
+      feetPoint(push.meter, push.x, group.position)
+
+      // Facing down the track, turned a little the way you're steering.
+      steerYaw.current += ((running ? -pushInput.side * STEER_TURN : 0) - steerYaw.current) * (1 - Math.exp(-8 * delta))
+      _targetQuat.setFromAxisAngle(_up, push.phase === 'top' ? CHEER_YAW : DOWNHILL_YAW + steerYaw.current)
       visual.quaternion.slerp(_targetQuat, 1 - Math.pow(0.001, delta))
       shownAt.copy(push.position)
       if (held) held.visible = false
-      motion.rolling = true
+
+      // Strides, quicker the faster you go: a heavy footfall on each, and a jiggle.
+      if (running) {
+        const stepBefore = Math.floor(motion.stride / Math.PI)
+        motion.stride += slow * (SPRINT_CADENCE[0] + SPRINT_CADENCE[1] * Math.min(1.6, push.speed / RUN_SPEED))
+        if (Math.floor(motion.stride / Math.PI) !== stepBefore && push.speed > 2) {
+          sfx.step(Math.min(1, motion.bulk))
+          j.v += 1.5 + 3.5 * bulk
+        }
+      }
+
+      // The belly smash: braced as a wall comes up, held through the slam and the burst,
+      // easing off after; and your belly squashing against the bricks.
+      const wallTouch = push.pressWall >= 0 ? push.wallHitAt[push.pressWall] : 0
+      if (wallTouch && wallTouch !== j.slam) {
+        j.slam = wallTouch
+        j.v += SLAM_KICK
+      }
+      if (push.smashAt !== j.smash) {
+        j.smash = push.smashAt
+        j.v += SMASH_KICK
+        motion.bulkVel = (motion.bulkVel ?? 0) + GULP_PUFF
+      }
+      const sinceSmash = now - push.smashAt
+      const after = sinceSmash < RAM_HOLD_MS ? 1 : Math.max(0, 1 - (sinceSmash - RAM_HOLD_MS) / RAM_OUT_MS)
+      const brace = running ? Math.min(1, Math.max(0, (RAM_FROM - nextWallAhead()) / (RAM_FROM - 0.4))) : 0
+      const straining = push.press > 0 || push.strain > 0 ? 1 : 0
+      const ramTarget = push.phase === 'top' ? 0 : Math.max(brace, after, straining)
+      ramming.current += (ramTarget - ramming.current) * (1 - Math.exp(-14 * delta))
+
+      motion.dashing = true
+      motion.ram = ramming.current
       motion.speed = push.speed
       motion.tired = push.phase === 'blocked' ? Math.min(1, motion.tired + delta / TIRED_IN) : 0
       motion.cheer = push.phase === 'top' ? Math.min(1, motion.cheer + delta / CHEER_IN) : 0
@@ -384,15 +422,14 @@ export function Player({ onAvatarReady }) {
       return
     }
     if (wasPushing.current && group && visual) {
-      // Back in the plaza: stood up again.
+      // Back in the plaza.
       wasPushing.current = false
       velocity.current.set(0, 0, 0)
       vy.current = 0
       group.position.copy(pos)
-      if (rollRef.current) rollRef.current.rotation.x = 0
-      if (ballRef.current) ballRef.current.position.y = 0
       visual.quaternion.setFromAxisAngle(_up, player.yaw)
-      motion.rolling = false
+      motion.dashing = false
+      motion.ram = 0
       motion.tired = 0
       motion.cheer = 0
     }
@@ -606,21 +643,17 @@ export function Player({ onAvatarReady }) {
     <group ref={groupRef}>
       <primitive ref={starsRef} object={stars} />
       <group ref={visualRef}>
-        <group ref={rollRef}>
-          <group ref={ballRef}>
-            {/* The loading screen waits for your Bloxity avatar; only if it can't be had in
-                time (or at all) does the blocky stand-in show in its place. */}
-            {!avatarIn && <FallbackAvatar motionRef={motionRef} handRef={handRef} />}
-            <AvatarShaderWarmup />
-            <ErrorBoundary fallback={<FallbackAvatar motionRef={motionRef} handRef={handRef} onReady={handleAvatarReady} />}>
-              <Suspense fallback={null}>
-                <PlayerAvatar onReady={handleAvatarReady} targetHeight={PLAYER_HEIGHT} motionRef={motionRef} handRef={handRef} />
-              </Suspense>
-            </ErrorBoundary>
-            <group ref={handRef}>
-              <primitive ref={heldRef} object={food} />
-            </group>
-          </group>
+        {/* The loading screen waits for your Bloxity avatar; only if it can't be had in
+            time (or at all) does the blocky stand-in show in its place. */}
+        {!avatarIn && <FallbackAvatar motionRef={motionRef} handRef={handRef} />}
+        <AvatarShaderWarmup />
+        <ErrorBoundary fallback={<FallbackAvatar motionRef={motionRef} handRef={handRef} onReady={handleAvatarReady} />}>
+          <Suspense fallback={null}>
+            <PlayerAvatar onReady={handleAvatarReady} targetHeight={PLAYER_HEIGHT} motionRef={motionRef} handRef={handRef} />
+          </Suspense>
+        </ErrorBoundary>
+        <group ref={handRef}>
+          <primitive ref={heldRef} object={food} />
         </group>
       </group>
     </group>

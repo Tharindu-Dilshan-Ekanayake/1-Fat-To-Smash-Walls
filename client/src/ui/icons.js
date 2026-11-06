@@ -194,15 +194,21 @@ const coin = svg(
     ]),
 )
 
-/** The ribbon of a finish tape, red and white stripes in a wave: what a roll smashes through. */
-const TAPE_RIBBON = 'M4 38C28 22 52 56 96 32l-6 14 6 14C52 82 28 48 4 64l6-13z'
-const tape = svg(
-  `<path d="${TAPE_RIBBON}" fill="url(#tp-s)"/>
-  <path d="${TAPE_RIBBON}" fill="url(#tp-sh)"/>
-  <path d="M12 39c10-3 24 2 34 6s18 3 26 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".6"/>
-  <path d="${TAPE_RIBBON}" fill="none" stroke="${OUT}" stroke-width="6" stroke-linejoin="round"/>`,
-  `<pattern id="tp-s" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="18" height="18" fill="#ffffff"/><rect width="9" height="18" fill="#ff2a3d"/></pattern>` +
-    `<linearGradient id="tp-sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient>`,
+/** A red brick wall bursting open, two bricks flying off it: what a run smashes through. */
+const wall = svg(
+  `<rect x="6" y="30" width="80" height="62" rx="6" fill="url(#wl-b)" stroke="${OUT}" stroke-width="6"/>
+  <path d="M9 51h74M9 72h74M30 33v18M58 33v18M18 51v21M44 51v21M70 51v21M30 72v18M58 72v18" stroke="#7a2614" stroke-width="4" stroke-linecap="round"/>
+  <path d="M12 36h14M34 36h20M62 36h20" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".45"/>
+  <path d="M46 92l4-14-9-8 10-9-6-10 9-8" fill="none" stroke="${OUT}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <g stroke="${OUT}" stroke-width="5" stroke-linejoin="round">
+    <rect x="66" y="6" width="26" height="15" rx="3" fill="url(#wl-b)" transform="rotate(24 79 13)"/>
+    <rect x="48" y="12" width="16" height="11" rx="3" fill="url(#wl-b)" transform="rotate(-18 56 17)"/>
+  </g>`,
+  vgrad('wl-b', [
+    [0, '#ff8a5c'],
+    [0.5, '#e2502c'],
+    [1, '#b33216'],
+  ]),
 )
 
 /** A red gift box tied with a yellow ribbon and bow. */
@@ -381,7 +387,7 @@ export const ICON_SVGS = {
   calendar,
   star,
   food,
-  tape,
+  wall,
   gift,
   gear,
   home,

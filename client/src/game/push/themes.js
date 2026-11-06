@@ -1,7 +1,8 @@
 import { STYLE } from '../materials'
 
 /**
- * Per-stage look, as in the reference: a tiled floor (`floor`, or `floorStyle`) between
+ * Per-stage look: the BRICK WALL across the end of the stage (`brick`, its bricks'
+ * colour - see wallLook.js), a tiled floor (`floor`, or `floorStyle`) between
  * stepped cliffs of big square studs (`wall`, or `wallStyle`; BLOCK_GRASS gives them
  * grass caps of their own, otherwise they get a cap slab in `cap`), the line where the
  * stage's slope starts (`gate`), the sky up there (`stars` out in space) and the HUD's
@@ -10,6 +11,7 @@ import { STYLE } from '../materials'
 export const STAGE_THEMES = {
   // Bright green tiles between salmon cliffs with grass along every step.
   grass: {
+    brick: '#d9583b',
     floor: '#5fe03c',
     wall: '#c98a6e',
     wallStyle: STYLE.BLOCK_GRASS,
@@ -19,6 +21,7 @@ export const STAGE_THEMES = {
   },
   // A peach floor between tall tan cliffs.
   sand: {
+    brick: '#e0a25e',
     floor: '#f8c999',
     wall: '#c99a6b',
     cap: '#e7b886',
@@ -27,6 +30,7 @@ export const STAGE_THEMES = {
     name: ['#fff3d6', '#ffcf8a', '#e8913a'],
   },
   ice: {
+    brick: '#bfe8ff',
     floor: '#e3f5ff',
     wall: '#8cc3ec',
     cap: '#ffffff',
@@ -35,6 +39,7 @@ export const STAGE_THEMES = {
     name: ['#ffffff', '#c9f1ff', '#5cc8ff'],
   },
   volcano: {
+    brick: '#3d3236',
     floor: '#4a3f42',
     wall: '#352e31',
     cap: '#ff5a1c',
@@ -44,6 +49,7 @@ export const STAGE_THEMES = {
     name: ['#ffd0b0', '#ff7a3c', '#e2240c'],
   },
   candy: {
+    brick: '#ff8fc8',
     floor: '#ffc6e4',
     wall: '#ff9fd2',
     cap: '#fff2fa',
@@ -52,6 +58,7 @@ export const STAGE_THEMES = {
     name: ['#ffe6f6', '#ff9cd6', '#ff3fa8'],
   },
   crystal: {
+    brick: '#9b7bff',
     floor: '#6a4fc0',
     wall: '#4a3394',
     cap: '#a98bff',
@@ -61,6 +68,7 @@ export const STAGE_THEMES = {
     name: ['#f2e6ff', '#c69bff', '#8a3ee8'],
   },
   moon: {
+    brick: '#a3a8b2',
     floor: '#a3a8b2',
     wall: '#6c727d',
     cap: '#cdd1d8',
@@ -71,6 +79,7 @@ export const STAGE_THEMES = {
   },
   // Mossy stone ruins under a green canopy.
   jungle: {
+    brick: '#8f8a66',
     floor: '#4caa3c',
     wall: '#77705a',
     wallStyle: STYLE.BLOCK_GRASS,
@@ -80,6 +89,7 @@ export const STAGE_THEMES = {
   },
   // Golden sand between sandstone cliffs, the sea running over their tops.
   beach: {
+    brick: '#f2c98a',
     floor: '#ffe7b3',
     wall: '#efbd85',
     cap: '#3fd0ff',
@@ -90,6 +100,7 @@ export const STAGE_THEMES = {
   },
   // Bright moss between purple rock, red toadstool caps along the cliff tops.
   mushroom: {
+    brick: '#c45bd2',
     floor: '#7ed957',
     wall: '#7a5a9a',
     cap: '#ff4f5e',
@@ -100,6 +111,7 @@ export const STAGE_THEMES = {
   },
   // Murky ground between dark mossy stone, glowing green slime running over the tops.
   swamp: {
+    brick: '#5f7040',
     floor: '#5a6a34',
     wall: '#34402a',
     cap: '#8aff3a',
@@ -110,6 +122,7 @@ export const STAGE_THEMES = {
   },
   // A road of gold tiles above the clouds: white cliffs, gold glowing along every top.
   cloud: {
+    brick: '#fbfcff',
     floor: '#fff1c4',
     wall: '#eef4ff',
     cap: '#ffd23f',
@@ -120,6 +133,7 @@ export const STAGE_THEMES = {
   },
   // A purple night, pumpkin-orange glowing along the cliff tops.
   spooky: {
+    brick: '#6b5d7d',
     floor: '#4a4356',
     wall: '#2f2a3a',
     cap: '#ff8a1e',
@@ -130,6 +144,7 @@ export const STAGE_THEMES = {
   },
   // Future World: lit-up towers at night, neon along every edge.
   neon: {
+    brick: '#4a4f9a',
     floor: '#1d1f3a',
     wall: '#2a2d52',
     wallStyle: STYLE.WINDOWS,
@@ -140,6 +155,7 @@ export const STAGE_THEMES = {
     name: ['#ffe6ff', '#ff7ae8', '#c03fff'],
   },
   cyber: {
+    brick: '#2f5578',
     floor: '#2a3346',
     floorStyle: STYLE.ROAD,
     wall: '#1c2a3e',
@@ -151,6 +167,7 @@ export const STAGE_THEMES = {
   },
   // Steel plate and hazard stripes.
   factory: {
+    brick: '#7d8591',
     floor: '#6a707c',
     floorStyle: STYLE.PLATE,
     wall: '#3d434e',
@@ -161,6 +178,7 @@ export const STAGE_THEMES = {
     name: ['#fff6d0', '#ffd21f', '#e89a1a'],
   },
   station: {
+    brick: '#c8d2e0',
     floor: '#d8dee8',
     floorStyle: STYLE.PLATE,
     wall: '#8a94a6',
@@ -172,6 +190,7 @@ export const STAGE_THEMES = {
     name: ['#ffffff', '#bfe4ff', '#4fb4ff'],
   },
   mars: {
+    brick: '#b8532e',
     floor: '#c8603a',
     wall: '#8a3a22',
     cap: '#e07a4a',
@@ -180,6 +199,7 @@ export const STAGE_THEMES = {
     name: ['#ffe0d0', '#ff8a5a', '#c83a1a'],
   },
   asteroid: {
+    brick: '#6f6a64',
     floor: '#5a5652',
     wall: '#3a3634',
     cap: '#8a8682',
@@ -189,6 +209,7 @@ export const STAGE_THEMES = {
     name: ['#eeeeff', '#b0a8ff', '#6a5aff'],
   },
   galaxy: {
+    brick: '#5a34a8',
     floor: '#2a1a5a',
     floorStyle: STYLE.GALAXY,
     wall: '#1a1240',
@@ -205,5 +226,5 @@ export const STAGE_THEMES = {
 /** Each world's lobby sky (and stars), by world index; World 1's is the scene's own. */
 export const WORLD_SKIES = [null, { sky: ['#1a1050', '#8a6ad8'], stars: true }]
 
-/** Every SAFEZONE, whatever the stage: light blue studs, floor and cliffs alike. */
-export const SAFE_THEME = { floor: '#a6dbff', floorStyle: STYLE.STUDS, wall: '#7ab9ec', cap: '#d8efff', gate: '#5cc8ff' }
+/** Every checkpoint, whatever the stage: a checkered floor between light blue stands. */
+export const SAFE_THEME = { floor: '#f4f7fb', floorStyle: STYLE.CHECKER, wall: '#7ab9ec', cap: '#d8efff', gate: '#5cc8ff' }

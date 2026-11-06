@@ -31,8 +31,8 @@ function usePrompt() {
   const atRollZone = useGame((s) => s.zone.pushZone)
   const hasFat = useGame((s) => s.profile.fat > 0)
 
-  // On the ROLL ZONE: hold to curl up and roll down the track - on the Fat you've eaten.
-  if (atRollZone) return hasFat ? { action: 'Roll!', run: () => actions.startPush(), hold: true } : { action: 'Eat food first!', run: null }
+  // On the SMASH ZONE: hold to charge down the track and smash walls - with the Fat you've eaten.
+  if (atRollZone) return hasFat ? { action: 'Run!', run: () => actions.startPush(), hold: true } : { action: 'Eat food first!', run: null }
 
   // A world portal: walking in is what takes you.
   if (atPortal) {
@@ -58,7 +58,7 @@ function usePrompt() {
   return null
 }
 
-/** Starting a roll: how long E (or a finger on ROLL!) is held while the ring fills. */
+/** Starting a run: how long E (or a finger on RUN!) is held while the ring fills. */
 const HOLD_MS = 700
 
 const touch = typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0)
@@ -159,7 +159,7 @@ export function InteractPrompt() {
     return (
       <button
         type="button"
-        aria-label="Roll"
+        aria-label="Run"
         className="pp-btn pp-chunky pp-pulse pointer-events-auto absolute flex touch-none flex-col items-center justify-center rounded-full"
         style={{ width: 104, height: 104, background: GRADIENTS.greenButton, border: '4px solid #111', right: 96, bottom: 12 }}
         onPointerDown={grab}
@@ -167,9 +167,9 @@ export function InteractPrompt() {
         onContextMenu={(e) => e.preventDefault()}
       >
         <span className="pp-gloss" style={{ borderRadius: '52px 52px 30px 30px' }} />
-        <Icon name="tape" size={54} />
+        <Icon name="wall" size={54} />
         <span className="pp-stroke" style={{ fontSize: 18, marginTop: -4 }}>
-          ROLL!
+          RUN!
         </span>
         <HoldRing filling={filling} inset="-14px" onDone={done} />
       </button>
